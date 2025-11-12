@@ -6,7 +6,6 @@ let todos: Todo[] = [
   {
     id: "1",
     title: "Team Meeting",
-    description: "Weekly sync-up meeting to discuss project progress and blockers. All team members are required to attend and provide updates on their tasks.",
     date: formatISO(new Date()),
     importance: "High",
     completed: false,
@@ -14,7 +13,6 @@ let todos: Todo[] = [
   {
     id: "2",
     title: "Design Review",
-    description: "Review the new UI/UX mockups for the dashboard.",
     date: formatISO(new Date()),
     importance: "Medium",
     completed: false,
@@ -22,7 +20,6 @@ let todos: Todo[] = [
   {
     id: "3",
     title: "Submit Expense Report",
-    description: "Finalize and submit the expense report for Q2.",
     date: formatISO(subDays(new Date(), 2)),
     importance: "Low",
     completed: true,
@@ -30,7 +27,6 @@ let todos: Todo[] = [
   {
     id: "4",
     title: "Plan Q4 Roadmap",
-    description: "Brainstorm and outline the product roadmap for the last quarter of the year. This is a very long description to test truncation. It should wrap or be truncated with a tooltip. Let's see how the AI decides to handle this. It might be better to show it on multiple lines.",
     date: formatISO(addDays(new Date(), 3)),
     importance: "High",
     completed: false,
@@ -38,7 +34,6 @@ let todos: Todo[] = [
   {
     id: "5",
     title: "Code Refactoring",
-    description: "Refactor the authentication module.",
     date: formatISO(addDays(new Date(), 5)),
     importance: "Medium",
     completed: false,

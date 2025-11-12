@@ -7,7 +7,6 @@ import type { Todo } from "./types";
 
 const todoSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
   date: z.string().min(1, "Date is required"),
   importance: z.enum(["High", "Medium", "Low"]),
 });
@@ -23,10 +22,7 @@ export async function createTodoAction(formData: FormData) {
   }
 
   try {
-    await addTodo({
-      ...validatedFields.data,
-      description: validatedFields.data.description || "",
-    });
+    await addTodo(validatedFields.data);
     revalidatePath("/");
     return { success: true };
   } catch (error) {
@@ -79,7 +75,6 @@ export async function exportTodosByYear(year: number): Promise<string> {
     "ID",
     "Date",
     "Title",
-    "Description",
     "Importance",
     "Completed",
   ];
@@ -90,7 +85,6 @@ export async function exportTodosByYear(year: number): Promise<string> {
       todo.id,
       new Date(todo.date).toLocaleDateString(),
       `"${todo.title.replace(/"/g, '""')}"`,
-      `"${todo.description.replace(/"/g, '""')}"`,
       todo.importance,
       todo.completed,
     ].join(",");

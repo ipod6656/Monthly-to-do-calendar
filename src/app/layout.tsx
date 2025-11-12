@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Weekday Todo Calendar",
+  title: "Monthly to-do Calendar",
   description: "A todo list manager in a monthly calendar board format.",
 };
 

@@ -31,6 +31,7 @@ import { TodoItem } from "@/components/todo-item";
 import { cn } from "@/lib/utils";
 import { exportTodosByYear } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
+import { ScrollArea } from "./ui/scroll-area";
 
 export function Calendar({ todos }: { todos: Todo[] }) {
   const { toast } = useToast();
@@ -54,10 +55,8 @@ export function Calendar({ todos }: { todos: Todo[] }) {
   };
 
   const filteredTodos = useMemo(() => {
-    return todos.filter(
-      (todo) =>
-        todo.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        todo.description.toLowerCase().includes(searchQuery.toLowerCase())
+    return todos.filter((todo) =>
+      todo.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [todos, searchQuery]);
 
@@ -112,7 +111,7 @@ export function Calendar({ todos }: { todos: Todo[] }) {
       <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold font-headline text-primary">
-            Weekday Todo Calendar
+            Monthly to-do Calendar
           </h1>
         </div>
         <div className="flex items-center justify-center gap-2">
@@ -191,15 +190,17 @@ export function Calendar({ todos }: { todos: Todo[] }) {
                         <Plus className="h-4 w-4" />
                     </Button>
                 </div>
-                <div className="mt-2 space-y-2 flex-1">
-                  {todosForDay.map((todo) => (
-                    <TodoItem
-                      key={todo.id}
-                      todo={todo}
-                      onSelect={handleSelectTodo}
-                    />
-                  ))}
-                </div>
+                <ScrollArea className="mt-2 flex-1">
+                  <div className="space-y-2 pr-3">
+                    {todosForDay.map((todo) => (
+                      <TodoItem
+                        key={todo.id}
+                        todo={todo}
+                        onSelect={handleSelectTodo}
+                      />
+                    ))}
+                  </div>
+                </ScrollArea>
               </CardContent>
             </Card>
           );

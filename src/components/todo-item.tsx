@@ -4,7 +4,6 @@ import type { Todo } from "@/lib/types";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImportanceIcon } from "./importance-icon";
 import { cn } from "@/lib/utils";
-import { TodoDescription } from "./todo-description";
 
 interface TodoItemProps {
   todo: Todo;
@@ -30,7 +29,6 @@ export function TodoItem({ todo, onSelect }: TodoItemProps) {
           <span className="truncate pr-2">{todo.title}</span>
           <ImportanceIcon importance={todo.importance} />
         </CardTitle>
-        {todo.description && <TodoDescription description={todo.description} />}
       </CardHeader>
     </Card>
   );

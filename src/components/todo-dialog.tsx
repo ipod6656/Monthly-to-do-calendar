@@ -39,7 +39,6 @@ import {
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -54,7 +53,6 @@ import { Trash2 } from "lucide-react";
 
 const todoSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
   date: z.string().min(1, "Date is required"),
   importance: z.enum(["High", "Medium", "Low"]),
   completed: z.boolean().default(false),
@@ -82,7 +80,6 @@ export function TodoDialog({
     resolver: zodResolver(todoSchema),
     defaultValues: {
       title: "",
-      description: "",
       date: "",
       importance: "Medium",
       completed: false,
@@ -99,7 +96,6 @@ export function TodoDialog({
         } else if (selectedDate) {
             form.reset({
                 title: "",
-                description: "",
                 date: format(selectedDate, "yyyy-MM-dd"),
                 importance: "Medium",
                 completed: false,
@@ -174,22 +170,6 @@ export function TodoDialog({
                   <FormLabel>Title</FormLabel>
                   <FormControl>
                     <Input placeholder="E.g., Finish project proposal" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Add more details about your task..."
-                      {...field}
-                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
