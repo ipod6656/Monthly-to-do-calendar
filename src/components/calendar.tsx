@@ -32,9 +32,8 @@ import { cn } from "@/lib/utils";
 import { exportTodosByYear } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, query } from "firebase/firestore";
+import { collection, query, getDocs } from "firebase/firestore";
 import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
-import { getTodos } from "@/lib/data";
 
 
 export function Calendar() {
@@ -66,7 +65,7 @@ export function Calendar() {
     return query(todosRef);
   }, [todosRef]);
 
-  const { data: todos, isLoading: todosLoading } = useCollection<Omit<Todo, 'id'>>(todosQuery);
+  const { data: todos, isLoading: todosLoading } = useCollection<Todo>(todosQuery);
 
   const handleOpenNewTodoDialog = (date: Date) => {
     setSelectedDate(date);
