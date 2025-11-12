@@ -4,10 +4,17 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
+import Script from "next/script";
 
 export const metadata: Metadata = {
   title: "Monthly to-do Calendar",
   description: "A todo list manager in a monthly calendar board format.",
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
 };
 
 const ptSans = PT_Sans({
@@ -33,6 +40,15 @@ export default function RootLayout({
           {children}
         </FirebaseClientProvider>
         <Toaster />
+        <Script id="vh-fix" strategy="beforeInteractive">
+          {`
+            function setVh() {
+              document.documentElement.style.setProperty('--vh', window.innerHeight + 'px');
+            }
+            window.addEventListener('resize', setVh);
+            setVh();
+          `}
+        </Script>
       </body>
     </html>
   );
