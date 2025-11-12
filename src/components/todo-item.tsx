@@ -73,11 +73,11 @@ export function TodoItem({ todo, onSelect }: TodoItemProps) {
                 <TooltipTrigger asChild>
                   <CardTitle
                     className={cn(
-                      "text-sm font-normal",
+                      "text-sm font-normal truncate",
                       todo.completed && "line-through text-muted-foreground"
                     )}
                   >
-                    <span className="truncate pr-2">{todo.title}</span>
+                    <span className="pr-2">{todo.title}</span>
                   </CardTitle>
                 </TooltipTrigger>
                 <TooltipContent>
