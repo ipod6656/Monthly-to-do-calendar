@@ -146,7 +146,7 @@ export function Calendar({ todos }: { todos: Todo[] }) {
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-5 auto-rows-fr gap-2 overflow-auto">
+      <div className="flex-1 grid grid-cols-5 gap-2 overflow-auto">
         {weekdays.map((day) => (
           <div
             key={day}
