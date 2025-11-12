@@ -12,16 +12,20 @@ import {
 import {
   addDocumentNonBlocking,
   deleteDocumentNonBlocking,
-  setDocumentNonBlocking,
   updateDocumentNonBlocking,
 } from "@/firebase";
-import { useFirestore } from "@/firebase";
+import { initializeFirebase } from "@/firebase";
 
 // This file now interacts with Firebase
 const TODOS_COLLECTION = "todos";
 
+// Helper function to get the firestore instance
+function getDb() {
+    return initializeFirebase().firestore;
+}
+
 export async function getTodosForUser(userId: string): Promise<Todo[]> {
-  const db = getFirestore();
+  const db = getDb();
   const todosCol = collection(db, "users", userId, "todos");
   const todoSnapshot = await getDocs(todosCol);
   const todoList = todoSnapshot.docs.map(
@@ -34,7 +38,7 @@ export function addTodo(
   userId: string,
   todo: Omit<Todo, "id" | "completed">
 ): Promise<any> {
-  const db = useFirestore();
+  const db = getDb();
   const newTodo = {
     ...todo,
     completed: false,
@@ -51,7 +55,7 @@ export function updateTodo(
   id: string,
   update: Partial<Omit<Todo, "id">>
 ): void {
-  const db = useFirestore();
+  const db = getDb();
   const todoRef = doc(db, "users", userId, "todos", id);
   updateDocumentNonBlocking(todoRef, {
     ...update,
@@ -60,7 +64,7 @@ export function updateTodo(
 }
 
 export function deleteTodo(userId: string, id: string): void {
-  const db = useFirestore();
+  const db = getDb();
   const todoRef = doc(db, "users", userId, "todos", id);
   deleteDocumentNonBlocking(todoRef);
 }
