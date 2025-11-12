@@ -170,7 +170,7 @@ export function Calendar({ todos }: { todos: Todo[] }) {
                 !isSameMonth(day, currentDate) && "bg-muted/50"
               )}
             >
-              <CardContent className="p-2 flex-1 flex flex-col">
+              <CardContent className="p-2 flex-1 flex flex-col overflow-hidden">
                 <div className="flex justify-between items-center">
                     <time
                     dateTime={format(day, "yyyy-MM-dd")}

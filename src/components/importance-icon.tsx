@@ -1,4 +1,4 @@
-import { AlertTriangle, Minus, ArrowDown } from "lucide-react";
+import { AlertTriangle, GripHorizontal, ArrowDown } from "lucide-react";
 import type { Importance } from "@/lib/types";
 
 export function ImportanceIcon({ importance }: { importance: Importance }) {
@@ -12,7 +12,7 @@ export function ImportanceIcon({ importance }: { importance: Importance }) {
       );
     case "Medium":
       return (
-        <Minus
+        <GripHorizontal
           className="h-4 w-4 flex-shrink-0 text-orange-500"
           aria-label="Medium importance"
         />
