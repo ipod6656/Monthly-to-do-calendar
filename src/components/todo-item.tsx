@@ -8,6 +8,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { updateTodoAction } from "@/lib/actions";
 import { useTransition } from "react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface TodoItemProps {
   todo: Todo;
@@ -45,9 +51,9 @@ export function TodoItem({ todo, onSelect }: TodoItemProps) {
         todo.completed && "bg-muted/60"
       )}
     >
-      <CardHeader className="p-2" >
+      <CardHeader className="p-2">
         <div className="flex items-center gap-2">
-           <Checkbox
+          <Checkbox
             id={`todo-${todo.id}`}
             checked={todo.completed}
             onCheckedChange={handleCheckedChange}
@@ -58,16 +64,28 @@ export function TodoItem({ todo, onSelect }: TodoItemProps) {
             disabled={isPending}
             className="flex-shrink-0"
           />
-          <div onClick={() => onSelect(todo)} className="flex-grow flex items-center justify-between">
-            <CardTitle
-              className={cn(
-                "flex items-center justify-between text-sm flex-grow",
-                todo.completed && "line-through text-muted-foreground"
-              )}
-            >
-              <span className="truncate pr-2">{todo.title}</span>
-              <ImportanceIcon importance={todo.importance} />
-            </CardTitle>
+          <div
+            onClick={() => onSelect(todo)}
+            className="flex-grow flex items-center justify-between overflow-hidden"
+          >
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <CardTitle
+                    className={cn(
+                      "flex items-center justify-between text-sm flex-grow",
+                      todo.completed && "line-through text-muted-foreground"
+                    )}
+                  >
+                    <span className="truncate pr-2">{todo.title}</span>
+                  </CardTitle>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{todo.title}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <ImportanceIcon importance={todo.importance} />
           </div>
         </div>
       </CardHeader>

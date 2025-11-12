@@ -72,7 +72,7 @@ export function Calendar({ todos }: { todos: Todo[] }) {
     const dayOfWeek = getDay(day);
     return dayOfWeek >= 1 && dayOfWeek <= 5; // Monday to Friday
   });
-  
+
   const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
@@ -104,12 +104,6 @@ export function Calendar({ todos }: { todos: Todo[] }) {
       }
     });
   };
-  
-  const calendarWeeks = [];
-  for (let i = 0; i < calendarDays.length; i += 5) {
-      calendarWeeks.push(calendarDays.slice(i, i + 5));
-  }
-
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground p-4 md:p-6 lg:p-8">
@@ -152,7 +146,7 @@ export function Calendar({ todos }: { todos: Todo[] }) {
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-5 grid-rows-[auto_1fr_1fr_1fr_1fr_1fr] gap-2 overflow-auto">
+      <div className="flex-1 grid grid-cols-5 grid-rows-[auto_repeat(5,minmax(120px,auto))] gap-2 overflow-auto">
         {weekdays.map((day) => (
           <div
             key={day}
