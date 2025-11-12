@@ -1,67 +1,9 @@
-/**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for managing todo items within a weekday calendar application.
- *
- * Data Structure:
- * All todo items are nested under `/users/{userId}/todos/{todoId}`, ensuring that each user's data is isolated and directly accessible only to them.
- *
- * Key Security Decisions:
- * - User listing is implicitly disallowed by the data structure.
- * - Path-based ownership is enforced, simplifying the rules and eliminating the need for `get()` calls.
- * - Data validation is relaxed in this prototype phase to allow for rapid iteration, but authorization is strictly enforced.
- * - All write operations require a verified, signed-in user.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Controls access to individual todo items for a specific user. Only the authenticated user can create, read, update, or delete their own todo items.
-     * @path /users/{userId}/todos/{todoId}
-     * @allow (create) User 'user123' creates a new todo item under /users/user123/todos/todo456.
-     * @allow (get) User 'user123' retrieves their todo item /users/user123/todos/todo456.
-     * @allow (update) User 'user123' updates their todo item /users/user123/todos/todo456.
-     * @allow (delete) User 'user123' deletes their todo item /users/user123/todos/todo456.
-     * @deny (create) User 'user456' attempts to create a todo item under /users/user123/todos/todo789.
-     * @deny (get) User 'user456' attempts to retrieve todo item /users/user123/todos/todo456.
-     * @deny (update) User 'user456' attempts to update todo item /users/user123/todos/todo456.
-     * @deny (delete) User 'user456' attempts to delete todo item /users/user123/todos/todo456.
-     * @principle Enforces document ownership for all operations.
-     */
-    match /users/{userId}/todos/{todoId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == todoId;
-      allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isSignedIn() && isExistingOwner(userId);
-    }
-
-    // --- Helper Functions ---
-
-    /**
-     * @description Checks if the user is signed in.
-     * @return {boolean} True if the user is authenticated, false otherwise.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the user ID matches the authenticated user's ID.
-     * @param {string} userId The user ID to check.
-     * @return {boolean} True if the user ID matches, false otherwise.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-     /**
-      * @description Checks if the user ID matches the authenticated user's ID and the resource exists.
-      * @param {string} userId The user ID to check.
-      * @return {boolean} True if the user ID matches and the resource exists, false otherwise.
-      */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+    match /users/{userId}/{documents=**} {
+      allow read, write: if request.auth.uid == userId;
     }
   }
 }

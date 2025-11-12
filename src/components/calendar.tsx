@@ -22,7 +22,7 @@ import {
   Download,
   Loader2,
 } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,8 +31,13 @@ import { TodoItem } from "@/components/todo-item";
 import { cn } from "@/lib/utils";
 import { exportTodosByYear } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
+import { collection, query } from "firebase/firestore";
+import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
+import { getTodos } from "@/lib/data";
 
-export function Calendar({ todos }: { todos: Todo[] }) {
+
+export function Calendar() {
   const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState("");
@@ -40,6 +45,28 @@ export function Calendar({ todos }: { todos: Todo[] }) {
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isExporting, startExportTransition] = useTransition();
+
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      initiateAnonymousSignIn(auth);
+    }
+  }, [isUserLoading, user, auth]);
+
+  const todosRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return collection(firestore, "users", user.uid, "todos");
+  }, [firestore, user]);
+
+  const todosQuery = useMemoFirebase(() => {
+    if (!todosRef) return null;
+    return query(todosRef);
+  }, [todosRef]);
+
+  const { data: todos, isLoading: todosLoading } = useCollection<Omit<Todo, 'id'>>(todosQuery);
 
   const handleOpenNewTodoDialog = (date: Date) => {
     setSelectedDate(date);
@@ -54,6 +81,7 @@ export function Calendar({ todos }: { todos: Todo[] }) {
   };
 
   const filteredTodos = useMemo(() => {
+    if (!todos) return [];
     return todos.filter((todo) =>
       todo.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -79,9 +107,10 @@ export function Calendar({ todos }: { todos: Todo[] }) {
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
 
   const handleExport = () => {
+    if (!user) return;
     startExportTransition(async () => {
       try {
-        const csvString = await exportTodosByYear(currentDate.getFullYear());
+        const csvString = await exportTodosByYear(currentDate.getFullYear(), user.uid);
         const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
@@ -104,6 +133,14 @@ export function Calendar({ todos }: { todos: Todo[] }) {
       }
     });
   };
+
+  if (isUserLoading || todosLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground p-4 md:p-6 lg:p-8">

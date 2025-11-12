@@ -50,6 +50,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Trash2 } from "lucide-react";
+import { useUser } from "@/firebase";
 
 const todoSchema = z.object({
   title: z.string().min(1, "제목은 필수 항목입니다."),
@@ -75,6 +76,7 @@ export function TodoDialog({
 }: TodoDialogProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const { user } = useUser();
 
   const form = useForm<TodoFormData>({
     resolver: zodResolver(todoSchema),
@@ -105,6 +107,7 @@ export function TodoDialog({
   }, [isOpen, todo, selectedDate, form]);
 
   const onSubmit = (data: TodoFormData) => {
+    if (!user) return;
     startTransition(async () => {
       const formData = new FormData();
       Object.entries(data).forEach(([key, value]) => {
@@ -114,8 +117,8 @@ export function TodoDialog({
       });
 
       const action = todo
-        ? updateTodoAction(todo.id, formData)
-        : createTodoAction(formData);
+        ? updateTodoAction(user.uid, todo.id, formData)
+        : createTodoAction(user.uid, formData);
 
       const result = await action;
 
@@ -133,9 +136,9 @@ export function TodoDialog({
   };
 
   const handleDelete = () => {
-    if (!todo) return;
+    if (!todo || !user) return;
     startTransition(async () => {
-      const result = await deleteTodoAction(todo.id);
+      const result = await deleteTodoAction(user.uid, todo.id);
       if (result.success) {
         toast({ title: "할 일이 삭제되었습니다!" });
         setOpen(false);
@@ -266,5 +269,3 @@ export function TodoDialog({
     </Dialog>
   );
 }
-
-    

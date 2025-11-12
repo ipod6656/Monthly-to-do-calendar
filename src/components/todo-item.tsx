@@ -14,6 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useUser } from "@/firebase";
 
 interface TodoItemProps {
   todo: Todo;
@@ -23,8 +24,10 @@ interface TodoItemProps {
 export function TodoItem({ todo, onSelect }: TodoItemProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const { user } = useUser();
 
   const handleCheckedChange = (checked: boolean) => {
+    if (!user) return;
     startTransition(async () => {
       const formData = new FormData();
       formData.append("title", todo.title);
@@ -32,7 +35,7 @@ export function TodoItem({ todo, onSelect }: TodoItemProps) {
       formData.append("importance", todo.importance);
       formData.append("completed", String(checked));
 
-      const result = await updateTodoAction(todo.id, formData);
+      const result = await updateTodoAction(user.uid, todo.id, formData);
 
       if (!result?.success) {
         toast({
