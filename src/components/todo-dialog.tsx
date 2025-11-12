@@ -52,8 +52,8 @@ import { format } from "date-fns";
 import { Trash2 } from "lucide-react";
 
 const todoSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  date: z.string().min(1, "Date is required"),
+  title: z.string().min(1, "제목은 필수 항목입니다."),
+  date: z.string().min(1, "날짜는 필수 항목입니다."),
   importance: z.enum(["High", "Medium", "Low"]),
   completed: z.boolean().default(false),
 });
@@ -120,13 +120,13 @@ export function TodoDialog({
       const result = await action;
 
       if (result?.success) {
-        toast({ title: `Todo ${todo ? "updated" : "created"} successfully!` });
+        toast({ title: `할 일이 ${todo ? "수정" : "생성"}되었습니다!` });
         setOpen(false);
       } else {
         toast({
           variant: "destructive",
-          title: "An error occurred",
-          description: "Failed to save the todo. Please try again.",
+          title: "오류가 발생했습니다",
+          description: "할 일을 저장하지 못했습니다. 다시 시도해주세요.",
         });
       }
     });
@@ -137,13 +137,13 @@ export function TodoDialog({
     startTransition(async () => {
       const result = await deleteTodoAction(todo.id);
       if (result.success) {
-        toast({ title: "Todo deleted successfully!" });
+        toast({ title: "할 일이 삭제되었습니다!" });
         setOpen(false);
       } else {
         toast({
           variant: "destructive",
-          title: "An error occurred",
-          description: "Failed to delete the todo. Please try again.",
+          title: "오류가 발생했습니다",
+          description: "할 일을 삭제하지 못했습니다. 다시 시도해주세요.",
         });
       }
     });
@@ -153,11 +153,11 @@ export function TodoDialog({
     <Dialog open={isOpen} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{todo ? "Edit Todo" : "Add Todo"}</DialogTitle>
+          <DialogTitle>{todo ? "할 일 수정" : "할 일 추가"}</DialogTitle>
           <DialogDescription>
             {todo
-              ? "Update the details of your task."
-              : "Create a new task for your calendar."}
+              ? "할 일의 세부 정보를 업데이트하세요."
+              : "캘린더에 새로운 할 일을 만드세요."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -167,9 +167,9 @@ export function TodoDialog({
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title</FormLabel>
+                  <FormLabel>제목</FormLabel>
                   <FormControl>
-                    <Input placeholder="E.g., Finish project proposal" {...field} />
+                    <Input placeholder="예: 프로젝트 제안서 완료" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -180,7 +180,7 @@ export function TodoDialog({
               name="date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Date</FormLabel>
+                  <FormLabel>날짜</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} />
                   </FormControl>
@@ -193,20 +193,20 @@ export function TodoDialog({
               name="importance"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Importance</FormLabel>
+                  <FormLabel>중요도</FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select importance" />
+                        <SelectValue placeholder="중요도 선택" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="High">High</SelectItem>
-                      <SelectItem value="Medium">Medium</SelectItem>
-                      <SelectItem value="Low">Low</SelectItem>
+                      <SelectItem value="High">높음</SelectItem>
+                      <SelectItem value="Medium">중간</SelectItem>
+                      <SelectItem value="Low">낮음</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -227,7 +227,7 @@ export function TodoDialog({
                     </FormControl>
                     <div className="space-y-1 leading-none">
                       <FormLabel>
-                        Mark as completed
+                        완료로 표시
                       </FormLabel>
                     </div>
                   </FormItem>
@@ -239,25 +239,25 @@ export function TodoDialog({
                  <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button type="button" variant="destructive" disabled={isPending}>
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        <Trash2 className="mr-2 h-4 w-4" /> 삭제
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogTitle>정말 삭제하시겠습니까?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete this todo item.
+                        이 작업은 되돌릴 수 없습니다. 이 할 일이 영구적으로 삭제됩니다.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+                      <AlertDialogCancel>취소</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete}>삭제</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
               )}
               <Button type="submit" disabled={isPending} className={!todo ? "w-full" : ""}>
-                {isPending ? "Saving..." : (todo ? "Save Changes" : "Create Todo")}
+                {isPending ? "저장 중..." : (todo ? "변경 내용 저장" : "할 일 만들기")}
               </Button>
             </DialogFooter>
           </form>
@@ -266,3 +266,5 @@ export function TodoDialog({
     </Dialog>
   );
 }
+
+    
