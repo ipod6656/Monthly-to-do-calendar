@@ -119,11 +119,8 @@ export function Calendar({ todos }: { todos: Todo[] }) {
           </Button>
           <div className="w-40 text-center">
             <h2 className="text-2xl font-semibold">
-              {format(currentDate, "MMMM")}
+              {format(currentDate, "MMMM yyyy")}
             </h2>
-            <p className="text-lg text-muted-foreground">
-              {format(currentDate, "yyyy")}
-            </p>
           </div>
           <Button variant="outline" size="icon" onClick={nextMonth}>
             <ChevronRight className="h-4 w-4" />
