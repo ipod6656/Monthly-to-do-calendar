@@ -66,14 +66,14 @@ export function TodoItem({ todo, onSelect }: TodoItemProps) {
           />
           <div
             onClick={() => onSelect(todo)}
-            className="flex-grow flex items-center justify-between overflow-hidden"
+            className="flex-grow flex items-center justify-between min-w-0"
           >
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <CardTitle
                     className={cn(
-                      "flex items-center justify-between text-sm flex-grow",
+                      "text-sm font-normal",
                       todo.completed && "line-through text-muted-foreground"
                     )}
                   >

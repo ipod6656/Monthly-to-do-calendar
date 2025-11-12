@@ -146,7 +146,7 @@ export function Calendar({ todos }: { todos: Todo[] }) {
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-5 grid-rows-[auto_repeat(5,minmax(120px,auto))] gap-2 overflow-auto">
+      <div className="flex-1 grid grid-cols-5 auto-rows-fr gap-2 overflow-auto">
         {weekdays.map((day) => (
           <div
             key={day}
@@ -187,7 +187,7 @@ export function Calendar({ todos }: { todos: Todo[] }) {
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="mt-2 space-y-2">
+                <div className="mt-2 space-y-2 flex-grow min-h-[60px]">
                   {todosForDay.map((todo) => (
                     <TodoItem
                       key={todo.id}
