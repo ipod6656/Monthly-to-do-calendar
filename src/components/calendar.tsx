@@ -146,15 +146,17 @@ export function Calendar({ todos }: { todos: Todo[] }) {
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-5 gap-2 overflow-auto">
+      <div className="grid grid-cols-5 gap-2">
         {weekdays.map((day) => (
           <div
             key={day}
-            className="pb-2 text-center font-bold text-primary"
+            className="pb-2 text-center font-bold text-primary sticky top-0 bg-background"
           >
             {day}
           </div>
         ))}
+      </div>
+      <div className="flex-1 grid grid-cols-5 gap-2 overflow-y-auto">
         {calendarDays.map((day) => {
           const todosForDay = filteredTodos.filter((todo) =>
             isSameDay(new Date(todo.date), day)
