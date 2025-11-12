@@ -31,7 +31,6 @@ import { TodoItem } from "@/components/todo-item";
 import { cn } from "@/lib/utils";
 import { exportTodosByYear } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
-import { ScrollArea } from "./ui/scroll-area";
 
 export function Calendar({ todos }: { todos: Todo[] }) {
   const { toast } = useToast();
@@ -157,7 +156,7 @@ export function Calendar({ todos }: { todos: Todo[] }) {
           </div>
         ))}
         
-        <div className="grid grid-cols-5 col-span-5 gap-2 overflow-auto">
+        <div className="grid grid-cols-5 col-span-5 gap-2 content-start">
         {calendarDays.map((day) => {
           const todosForDay = filteredTodos.filter((todo) =>
             isSameDay(new Date(todo.date), day)
@@ -166,11 +165,11 @@ export function Calendar({ todos }: { todos: Todo[] }) {
             <Card
               key={day.toString()}
               className={cn(
-                "min-h-[150px] transition-colors duration-200 hover:bg-accent/30 flex flex-col",
+                "min-h-[120px] transition-colors duration-200 hover:bg-accent/30 flex flex-col",
                 !isSameMonth(day, currentDate) && "bg-muted/50"
               )}
             >
-              <CardContent className="p-2 flex-1 flex flex-col overflow-hidden">
+              <CardContent className="p-2 flex flex-col">
                 <div className="flex justify-between items-center">
                     <time
                     dateTime={format(day, "yyyy-MM-dd")}
@@ -190,17 +189,15 @@ export function Calendar({ todos }: { todos: Todo[] }) {
                         <Plus className="h-4 w-4" />
                     </Button>
                 </div>
-                <ScrollArea className="mt-2 flex-1">
-                  <div className="space-y-2 pr-3">
-                    {todosForDay.map((todo) => (
-                      <TodoItem
-                        key={todo.id}
-                        todo={todo}
-                        onSelect={handleSelectTodo}
-                      />
-                    ))}
-                  </div>
-                </ScrollArea>
+                <div className="mt-2 space-y-2">
+                  {todosForDay.map((todo) => (
+                    <TodoItem
+                      key={todo.id}
+                      todo={todo}
+                      onSelect={handleSelectTodo}
+                    />
+                  ))}
+                </div>
               </CardContent>
             </Card>
           );
