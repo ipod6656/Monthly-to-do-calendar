@@ -150,7 +150,7 @@ export function Calendar({ todos }: { todos: Todo[] }) {
         {weekdays.map((day) => (
           <div
             key={day}
-            className="pb-2 text-center font-bold text-primary sticky top-0 bg-background"
+            className="pb-2 text-center font-bold text-primary sticky top-0 bg-background z-10"
           >
             {day}
           </div>

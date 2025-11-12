@@ -73,23 +73,25 @@ export async function exportTodosByYear(year: number): Promise<string> {
 
   const headers = [
     "ID",
-    "Date",
-    "Title",
-    "Importance",
-    "Completed",
+    "날짜",
+    "제목",
+    "중요도",
+    "완료 여부",
   ];
   const csvRows = [headers.join(",")];
 
-  for (const todo of yearTodos) {
+  yearTodos.forEach((todo, index) => {
     const values = [
-      todo.id,
-      new Date(todo.date).toLocaleDateString(),
+      index + 1,
+      new Date(todo.date).toLocaleDateString('ko-KR'),
       `"${todo.title.replace(/"/g, '""')}"`,
       todo.importance,
       todo.completed,
     ].join(",");
     csvRows.push(values);
-  }
+  });
 
-  return csvRows.join("\n");
+  // Add BOM for UTF-8
+  const BOM = "\uFEFF";
+  return BOM + csvRows.join("\n");
 }
