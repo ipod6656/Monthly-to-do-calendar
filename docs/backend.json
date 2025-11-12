@@ -1,0 +1,70 @@
+{
+  "entities": {
+    "TodoItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TodoItem",
+      "type": "object",
+      "description": "Represents a single todo item within the weekday calendar application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the TodoItem entity."
+        },
+        "description": {
+          "type": "string",
+          "description": "The text description of the todo item."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "The date the todo is due. Only weekdays are allowed.",
+          "format": "date"
+        },
+        "importance": {
+          "type": "string",
+          "description": "The level of importance assigned to the todo item (e.g., high, medium, low)."
+        },
+        "isCompleted": {
+          "type": "boolean",
+          "description": "Indicates whether the todo item has been completed."
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "dueDate",
+        "importance"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}/todos/{todoId}",
+        "definition": {
+          "entityName": "TodoItem",
+          "schema": {
+            "$ref": "#/backend/entities/TodoItem"
+          },
+          "description": "Stores individual todo items for a specific user. Path-based ownership ensures only the authenticated user can access their own todos.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "todoId",
+              "description": "The unique identifier of the todo item."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to store and manage todo items for a weekday calendar application. User-specific todo items are stored in a dedicated collection under each user's document (`/users/{userId}/todos/{todoId}`). This structure provides path-based ownership, simplifying security rules and ensuring that only the authenticated user can access their own todo items. To support the keyword search feature, consider using a third-party search service such as Algolia or Elasticsearch, as Firestore's built-in query capabilities are limited for full-text search. The yearly data export feature can be implemented using a backend function that aggregates all todo items for a specific year and exports them to an Excel file.\n\nAuthorization Independence is achieved as access control is based on path-based ownership (`/users/{userId}/todos/{todoId}`), eliminating the need for `get()` calls in security rules. Each todo item is implicitly owned by the user, ensuring that only the authenticated user can read, write, update, or delete their own todo items. This structure inherently supports QAPs as list operations are secured via path-based access control, effectively preventing unauthorized access to todo items."
+  }
+}
