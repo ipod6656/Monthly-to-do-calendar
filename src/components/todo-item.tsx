@@ -5,7 +5,6 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImportanceIcon } from "./importance-icon";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import { updateTodoAction } from "@/lib/actions";
 import { useTransition } from "react";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -14,7 +13,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useUser } from "@/firebase";
+import { useFirestore, useUser } from "@/firebase";
+import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { doc, serverTimestamp } from "firebase/firestore";
 
 interface TodoItemProps {
   todo: Todo;
@@ -25,19 +26,19 @@ export function TodoItem({ todo, onSelect }: TodoItemProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const { user } = useUser();
+  const firestore = useFirestore();
 
   const handleCheckedChange = (checked: boolean) => {
-    if (!user) return;
-    startTransition(async () => {
-      const formData = new FormData();
-      formData.append("title", todo.title);
-      formData.append("date", todo.date);
-      formData.append("importance", todo.importance);
-      formData.append("completed", String(checked));
-
-      const result = await updateTodoAction(user.uid, todo.id, formData);
-
-      if (!result?.success) {
+    if (!user || !firestore) return;
+    startTransition(() => {
+      try {
+        const todoRef = doc(firestore, "users", user.uid, "todos", todo.id);
+        updateDocumentNonBlocking(todoRef, {
+          ...todo,
+          completed: checked,
+          updatedAt: serverTimestamp(),
+        });
+      } catch (error) {
         toast({
           variant: "destructive",
           title: "An error occurred",

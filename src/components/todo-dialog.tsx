@@ -1,11 +1,6 @@
 "use client";
 
 import type { Todo } from "@/lib/types";
-import {
-  createTodoAction,
-  deleteTodoAction,
-  updateTodoAction,
-} from "@/lib/actions";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -50,7 +45,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Trash2 } from "lucide-react";
-import { useUser } from "@/firebase";
+import { useFirestore, useUser } from "@/firebase";
+import { collection, doc, serverTimestamp } from "firebase/firestore";
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 const todoSchema = z.object({
   title: z.string().min(1, "제목은 필수 항목입니다."),
@@ -77,6 +74,7 @@ export function TodoDialog({
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const { user } = useUser();
+  const firestore = useFirestore();
 
   const form = useForm<TodoFormData>({
     resolver: zodResolver(todoSchema),
@@ -107,48 +105,64 @@ export function TodoDialog({
   }, [isOpen, todo, selectedDate, form]);
 
   const onSubmit = (data: TodoFormData) => {
-    if (!user) return;
-    startTransition(async () => {
-      const formData = new FormData();
-      Object.entries(data).forEach(([key, value]) => {
-        if (value !== undefined) {
-          formData.append(key, String(value));
-        }
-      });
-
-      const action = todo
-        ? updateTodoAction(user.uid, todo.id, formData)
-        : createTodoAction(user.uid, formData);
-
-      const result = await action;
-
-      if (result?.success) {
-        toast({ title: `할 일이 ${todo ? "수정" : "생성"}되었습니다!` });
-        setOpen(false);
-      } else {
+    if (!user || !firestore) {
         toast({
-          variant: "destructive",
-          title: "오류가 발생했습니다",
-          description: "할 일을 저장하지 못했습니다. 다시 시도해주세요.",
+            variant: "destructive",
+            title: "오류가 발생했습니다",
+            description: "사용자 정보 또는 데이터베이스 연결을 찾을 수 없습니다.",
         });
-      }
+        return;
+    }
+
+    startTransition(() => {
+        try {
+            const todosCollection = collection(firestore, "users", user.uid, "todos");
+            if (todo) {
+                // Update existing todo
+                const todoRef = doc(todosCollection, todo.id);
+                updateDocumentNonBlocking(todoRef, {
+                    ...data,
+                    updatedAt: serverTimestamp(),
+                });
+                toast({ title: "할 일이 수정되었습니다!" });
+            } else {
+                // Create new todo
+                addDocumentNonBlocking(todosCollection, {
+                    ...data,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                });
+                toast({ title: "할 일이 생성되었습니다!" });
+            }
+            setOpen(false);
+        } catch (error) {
+            console.error("Error saving todo: ", error);
+            toast({
+                variant: "destructive",
+                title: "오류가 발생했습니다",
+                description: "할 일을 저장하지 못했습니다. 다시 시도해주세요.",
+            });
+        }
     });
   };
 
   const handleDelete = () => {
-    if (!todo || !user) return;
-    startTransition(async () => {
-      const result = await deleteTodoAction(user.uid, todo.id);
-      if (result.success) {
-        toast({ title: "할 일이 삭제되었습니다!" });
-        setOpen(false);
-      } else {
-        toast({
-          variant: "destructive",
-          title: "오류가 발생했습니다",
-          description: "할 일을 삭제하지 못했습니다. 다시 시도해주세요.",
-        });
-      }
+    if (!todo || !user || !firestore) return;
+    
+    startTransition(() => {
+        try {
+            const todoRef = doc(firestore, "users", user.uid, "todos", todo.id);
+            deleteDocumentNonBlocking(todoRef);
+            toast({ title: "할 일이 삭제되었습니다!" });
+            setOpen(false);
+        } catch (error) {
+            console.error("Error deleting todo: ", error);
+            toast({
+                variant: "destructive",
+                title: "오류가 발생했습니다",
+                description: "할 일을 삭제하지 못했습니다. 다시 시도해주세요.",
+            });
+        }
     });
   };
 

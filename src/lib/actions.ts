@@ -4,88 +4,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { initializeFirebase } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs } from "firebase/firestore";
+import type { Todo } from "./types";
 
-const todoSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  date: z.string().min(1, "Date is required"),
-  importance: z.enum(["High", "Medium", "Low"]),
-  completed: z.boolean().default(false),
-});
 
 async function getDb() {
   return initializeFirebase().firestore;
-}
-
-
-export async function createTodoAction(userId: string, formData: FormData) {
-  const rawData = Object.fromEntries(formData.entries());
-  
-  const validatedFields = todoSchema.omit({completed: true}).safeParse(rawData);
-
-  if (!validatedFields.success) {
-    return {
-      errors: validatedFields.error.flatten().fieldErrors,
-    };
-  }
-
-  try {
-    const db = await getDb();
-    const todosCollection = collection(db, "users", userId, "todos");
-    await addDoc(todosCollection, {
-        ...validatedFields.data,
-        completed: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-    });
-    revalidatePath("/");
-    return { success: true };
-  } catch (error) {
-    console.error(error);
-    return { error: "Failed to create todo." };
-  }
-}
-
-export async function updateTodoAction(userId: string, id: string, formData: FormData) {
-  const rawData = Object.fromEntries(formData.entries());
-  
-  const completed = rawData.completed === 'true';
-
-  const validatedFields = todoSchema.safeParse({ ...rawData, completed });
-
-  if (!validatedFields.success) {
-    return {
-      errors: validatedFields.error.flatten().fieldErrors,
-    };
-  }
-  
-  try {
-    const db = await getDb();
-    const todoRef = doc(db, "users", userId, "todos", id);
-    await updateDoc(todoRef, {
-        ...validatedFields.data,
-        updatedAt: serverTimestamp(),
-    });
-
-    revalidatePath("/");
-    return { success: true };
-  } catch (error) {
-    console.error(error);
-    return { error: "Failed to update todo." };
-  }
-}
-
-export async function deleteTodoAction(userId: string, id: string) {
-  try {
-    const db = await getDb();
-    const todoRef = doc(db, "users", userId, "todos", id);
-    await deleteDoc(todoRef);
-    revalidatePath("/");
-    return { success: true };
-  } catch (error) {
-    console.error(error);
-    return { error: "Failed to delete todo." };
-  }
 }
 
 export async function exportTodosByYear(year: number, userId: string): Promise<string> {
