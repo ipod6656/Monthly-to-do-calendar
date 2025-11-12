@@ -1,18 +1,12 @@
 "use client";
 
 import type { Todo } from "@/lib/types";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import { ImportanceIcon } from "./importance-icon";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTransition } from "react";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useFirestore, useUser } from "@/firebase";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { doc, serverTimestamp } from "firebase/firestore";
@@ -34,7 +28,6 @@ export function TodoItem({ todo, onSelect }: TodoItemProps) {
       try {
         const todoRef = doc(firestore, "users", user.uid, "todos", todo.id);
         updateDocumentNonBlocking(todoRef, {
-          ...todo,
           completed: checked,
           updatedAt: serverTimestamp(),
         });
@@ -54,9 +47,10 @@ export function TodoItem({ todo, onSelect }: TodoItemProps) {
         "cursor-pointer transition-colors duration-200 hover:bg-accent/20",
         todo.completed && "bg-muted/60"
       )}
+      onClick={() => onSelect(todo)}
     >
       <CardHeader className="p-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-start gap-2">
           <Checkbox
             id={`todo-${todo.id}`}
             checked={todo.completed}
@@ -66,30 +60,20 @@ export function TodoItem({ todo, onSelect }: TodoItemProps) {
               todo.completed ? "not completed" : "completed"
             }`}
             disabled={isPending}
-            className="flex-shrink-0"
+            className="flex-shrink-0 mt-0.5"
           />
-          <div
-            onClick={() => onSelect(todo)}
-            className="flex-grow flex items-center justify-between min-w-0"
-          >
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <CardTitle
-                    className={cn(
-                      "text-sm font-normal truncate",
-                      todo.completed && "line-through text-muted-foreground"
-                    )}
-                  >
-                    <span className="pr-2">{todo.title}</span>
-                  </CardTitle>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{todo.title}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <ImportanceIcon importance={todo.importance} />
+          <div className="flex-grow flex items-start justify-between min-w-0">
+             <div
+              className={cn(
+                "text-sm font-normal whitespace-pre-wrap break-words",
+                todo.completed && "line-through text-muted-foreground"
+              )}
+            >
+              {todo.title}
+            </div>
+            <div className="flex-shrink-0 ml-2">
+              <ImportanceIcon importance={todo.importance} />
+            </div>
           </div>
         </div>
       </CardHeader>
