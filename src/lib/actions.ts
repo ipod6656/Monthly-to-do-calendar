@@ -3,9 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { addTodo, deleteTodo, getTodosForUser, updateTodo } from "./data";
-import type { Todo } from "./types";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
 
 const todoSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -16,6 +13,7 @@ const todoSchema = z.object({
 
 export async function createTodoAction(userId: string, formData: FormData) {
   const rawData = Object.fromEntries(formData.entries());
+  
   const validatedFields = todoSchema.omit({completed: true}).safeParse(rawData);
 
   if (!validatedFields.success) {
@@ -36,6 +34,8 @@ export async function createTodoAction(userId: string, formData: FormData) {
 
 export async function updateTodoAction(userId: string, id: string, formData: FormData) {
   const rawData = Object.fromEntries(formData.entries());
+  
+  // Explicitly convert 'completed' from string to boolean
   const completed = rawData.completed === 'true';
 
   const validatedFields = todoSchema.safeParse({ ...rawData, completed });
