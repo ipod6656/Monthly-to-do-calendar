@@ -44,7 +44,7 @@ export function addTodo(
     completed: false,
     createdAt: serverTimestamp(),
   };
-  return addDocumentNonBlocking(
+  return addDoc(
     collection(db, "users", userId, "todos"),
     newTodo
   );
@@ -54,19 +54,19 @@ export function updateTodo(
   userId: string,
   id: string,
   update: Partial<Omit<Todo, "id">>
-): void {
+): Promise<void> {
   const db = getDb();
   const todoRef = doc(db, "users", userId, "todos", id);
-  updateDocumentNonBlocking(todoRef, {
+  return updateDoc(todoRef, {
     ...update,
     updatedAt: serverTimestamp(),
   });
 }
 
-export function deleteTodo(userId: string, id: string): void {
+export function deleteTodo(userId: string, id: string): Promise<void> {
   const db = getDb();
   const todoRef = doc(db, "users", userId, "todos", id);
-  deleteDocumentNonBlocking(todoRef);
+  return deleteDoc(todoRef);
 }
 
 // The following functions are not used anymore but kept for reference or future use.
