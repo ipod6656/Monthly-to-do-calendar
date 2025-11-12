@@ -104,6 +104,12 @@ export function Calendar({ todos }: { todos: Todo[] }) {
       }
     });
   };
+  
+  const calendarWeeks = [];
+  for (let i = 0; i < calendarDays.length; i += 5) {
+      calendarWeeks.push(calendarDays.slice(i, i + 5));
+  }
+
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground p-4 md:p-6 lg:p-8">
@@ -146,64 +152,69 @@ export function Calendar({ todos }: { todos: Todo[] }) {
         </div>
       </header>
 
-      <div className="grid grid-cols-5 flex-1 gap-1 overflow-hidden">
-        {weekdays.map((day) => (
-          <div
-            key={day}
-            className="pb-2 text-center font-bold text-primary"
-          >
-            {day}
-          </div>
-        ))}
-        
-        <div className="grid grid-cols-5 col-span-5 gap-2 content-start">
-        {calendarDays.map((day) => {
-          const todosForDay = filteredTodos.filter((todo) =>
-            isSameDay(new Date(todo.date), day)
-          );
-          return (
-            <Card
-              key={day.toString()}
-              className={cn(
-                "min-h-[120px] transition-colors duration-200 hover:bg-accent/30 flex flex-col",
-                !isSameMonth(day, currentDate) && "bg-muted/50"
-              )}
+      <div className="flex-1 overflow-auto">
+        <div className="grid grid-cols-5 gap-1">
+            {weekdays.map((day) => (
+            <div
+                key={day}
+                className="pb-2 text-center font-bold text-primary"
             >
-              <CardContent className="p-2 flex flex-col">
-                <div className="flex justify-between items-center">
-                    <time
-                    dateTime={format(day, "yyyy-MM-dd")}
+                {day}
+            </div>
+            ))}
+        </div>
+        <div className="flex flex-col gap-2">
+            {calendarWeeks.map((week, weekIndex) => (
+            <div key={weekIndex} className="grid grid-cols-5 gap-2 items-start">
+                {week.map((day) => {
+                const todosForDay = filteredTodos.filter((todo) =>
+                    isSameDay(new Date(todo.date), day)
+                );
+                return (
+                    <Card
+                    key={day.toString()}
                     className={cn(
-                        "font-semibold",
-                        isSameDay(day, new Date()) && "text-accent-foreground"
+                        "transition-colors duration-200 hover:bg-accent/30 flex flex-col",
+                        !isSameMonth(day, currentDate) && "bg-muted/50"
                     )}
                     >
-                    {format(day, "d")}
-                    </time>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 rounded-full"
-                        onClick={() => handleOpenNewTodoDialog(day)}
-                    >
-                        <Plus className="h-4 w-4" />
-                    </Button>
-                </div>
-                <div className="mt-2 space-y-2">
-                  {todosForDay.map((todo) => (
-                    <TodoItem
-                      key={todo.id}
-                      todo={todo}
-                      onSelect={handleSelectTodo}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+                    <CardContent className="p-2 flex-grow flex flex-col">
+                        <div className="flex justify-between items-center">
+                        <time
+                            dateTime={format(day, "yyyy-MM-dd")}
+                            className={cn(
+                            "font-semibold",
+                            isSameDay(day, new Date()) && "text-accent-foreground"
+                            )}
+                        >
+                            {format(day, "d")}
+                        </time>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-full"
+                            onClick={() => handleOpenNewTodoDialog(day)}
+                        >
+                            <Plus className="h-4 w-4" />
+                        </Button>
+                        </div>
+                        <div className="mt-2 space-y-2">
+                        {todosForDay.map((todo) => (
+                            <TodoItem
+                            key={todo.id}
+                            todo={todo}
+                            onSelect={handleSelectTodo}
+                            />
+                        ))}
+                        </div>
+                    </CardContent>
+                    </Card>
+                );
+                })}
+            </div>
+            ))}
         </div>
-      </div>
+        </div>
       <TodoDialog
         isOpen={isDialogOpen}
         setOpen={setDialogOpen}
