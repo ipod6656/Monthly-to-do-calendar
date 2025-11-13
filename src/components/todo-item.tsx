@@ -67,7 +67,8 @@ export function TodoItem({ todo, onSelect }: TodoItemProps) {
              <div
               className={cn(
                 "text-sm font-normal whitespace-pre-wrap break-words",
-                todo.completed && "line-through text-muted-foreground"
+                todo.completed && "line-through text-muted-foreground",
+                todo.importance === "High" && !todo.completed && "text-red-500 font-bold"
               )}
             >
               {todo.title}
