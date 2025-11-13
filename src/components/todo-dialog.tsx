@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Todo } from "@/lib/types";
@@ -48,6 +49,7 @@ import { Trash2 } from "lucide-react";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, doc, serverTimestamp } from "firebase/firestore";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { Textarea } from "@/components/ui/textarea";
 
 const todoSchema = z.object({
   title: z.string().min(1, "제목은 필수 항목입니다."),
@@ -186,7 +188,7 @@ export function TodoDialog({
                 <FormItem>
                   <FormLabel>제목</FormLabel>
                   <FormControl>
-                    <Input placeholder="예: 프로젝트 제안서 완료" {...field} />
+                    <Textarea placeholder="예: 프로젝트 제안서 완료" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Todo } from "@/lib/types";
@@ -50,7 +51,7 @@ export function TodoItem({ todo, onSelect }: TodoItemProps) {
       onClick={() => onSelect(todo)}
     >
       <CardHeader className="p-2">
-        <div className="flex items-start gap-2">
+        <div className="flex items-center gap-2">
           <Checkbox
             id={`todo-${todo.id}`}
             checked={todo.completed}
@@ -60,7 +61,7 @@ export function TodoItem({ todo, onSelect }: TodoItemProps) {
               todo.completed ? "not completed" : "completed"
             }`}
             disabled={isPending}
-            className="flex-shrink-0 mt-0.5"
+            className="flex-shrink-0"
           />
           <div className="flex-grow flex items-start justify-between min-w-0">
              <div
