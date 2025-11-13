@@ -3,17 +3,13 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { initializeFirebase } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, writeBatch } from "firebase/firestore";
+import { getDb } from "@/firebase/server-init";
+import { collection, getDocs, writeBatch } from "firebase/firestore";
 import type { Todo } from "./types";
 
 
-async function getDb() {
-  return initializeFirebase().firestore;
-}
-
 export async function deleteUserTodos(userId: string): Promise<void> {
-  const db = await getDb();
+  const db = getDb();
   const todosCol = collection(db, "users", userId, "todos");
   const todoSnapshot = await getDocs(todosCol);
 
@@ -30,7 +26,7 @@ export async function deleteUserTodos(userId: string): Promise<void> {
 }
 
 export async function exportTodosByYear(year: number, userId: string): Promise<string> {
-  const db = await getDb();
+  const db = getDb();
   const todosCol = collection(db, "users", userId, "todos");
   const todoSnapshot = await getDocs(todosCol);
   const allTodos = todoSnapshot.docs.map(
