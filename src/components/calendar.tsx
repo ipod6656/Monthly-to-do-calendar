@@ -89,12 +89,12 @@ export function Calendar() {
 
   const handleDeleteAccount = () => {
     if (!user) return;
+    const userId = user.uid;
     startDeleteTransition(async () => {
       try {
-        await deleteUserTodos(user.uid);
         await deleteUser(user);
+        await deleteUserTodos(userId);
         toast({ title: "계정이 성공적으로 삭제되었습니다." });
-        // Redirect is handled by useAuthRedirect hook
       } catch (error: any) {
         console.error("Error deleting account: ", error);
         toast({
