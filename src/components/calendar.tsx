@@ -206,7 +206,8 @@ export function Calendar() {
               key={day.toString()}
               className={cn(
                 "transition-colors duration-200 hover:bg-accent/30 flex flex-col",
-                !isSameMonth(day, currentDate) && "bg-muted/50"
+                !isSameMonth(day, currentDate) && "bg-muted/50",
+                isSameDay(day, new Date()) && "bg-accent/50"
               )}
             >
               <CardContent className="p-2 flex-grow flex flex-col">
