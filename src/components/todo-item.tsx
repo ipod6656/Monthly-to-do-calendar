@@ -48,7 +48,7 @@ export function TodoItem({ todo, onSelect, isToday }: TodoItemProps) {
       className={cn(
         "cursor-pointer transition-colors duration-200 hover:bg-accent/20",
         todo.completed && "bg-muted/60",
-        isToday && !todo.completed && "bg-card/80"
+        isToday && !todo.completed && "bg-card/60"
       )}
       onClick={() => onSelect(todo)}
     >
