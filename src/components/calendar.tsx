@@ -37,7 +37,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, query, getDocs, writeBatch } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
-import { useAuthRedirect } from "@/hooks/use-auth-redirect";
 import { deleteUser } from "firebase/auth";
 import {
   AlertDialog,
@@ -52,7 +51,6 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export function Calendar() {
-  useAuthRedirect({ to: '/login', condition: 'unauthenticated' });
   const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState("");
