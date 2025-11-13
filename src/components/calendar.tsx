@@ -154,8 +154,8 @@ export function Calendar() {
           <Button variant="outline" size="icon" onClick={prevMonth}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <div className="w-40 text-center">
-            <h2 className="text-2xl font-semibold leading-tight">
+          <div className="w-48 text-center">
+            <h2 className="text-3xl font-semibold leading-tight">
               <div>{format(currentDate, "yyyy")}</div>
               <div>{format(currentDate, "MMMM")}</div>
             </h2>
