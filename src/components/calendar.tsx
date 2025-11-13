@@ -92,8 +92,10 @@ export function Calendar() {
     const userId = user.uid;
     startDeleteTransition(async () => {
       try {
-        await deleteUser(user);
+        // First, delete the user's data from Firestore
         await deleteUserTodos(userId);
+        // Then, delete the user from Firebase Auth
+        await deleteUser(user);
         toast({ title: "계정이 성공적으로 삭제되었습니다." });
       } catch (error: any) {
         console.error("Error deleting account: ", error);
@@ -339,5 +341,3 @@ export function Calendar() {
     </div>
   );
 }
-
-    
