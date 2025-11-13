@@ -151,16 +151,16 @@ export function Calendar() {
           </h1>
         </div>
         <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="icon" onClick={prevMonth}>
+          <Button variant="outline" size="icon" onClick={prevMonth} className="border-primary/50">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="w-48 text-center">
-            <h2 className="text-3xl font-semibold leading-tight">
+            <h2 className="text-3xl leading-tight">
               <div>{format(currentDate, "yyyy")}</div>
               <div>{format(currentDate, "MMMM")}</div>
             </h2>
           </div>
-          <Button variant="outline" size="icon" onClick={nextMonth}>
+          <Button variant="outline" size="icon" onClick={nextMonth} className="border-primary/50">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
