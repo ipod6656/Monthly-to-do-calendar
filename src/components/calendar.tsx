@@ -25,7 +25,7 @@ import {
   LogOut,
   Trash2,
 } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, DragEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
 import { exportTodosByYear } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, query, getDocs, writeBatch } from "firebase/firestore";
+import { collection, query, getDocs, writeBatch, doc, serverTimestamp } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { deleteUser } from "firebase/auth";
 import {
@@ -49,6 +49,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 export function Calendar() {
   const { toast } = useToast();
@@ -130,6 +131,29 @@ export function Calendar() {
     setSelectedDate(null);
     setDialogOpen(true);
   };
+  
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault(); // Necessary to allow dropping
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>, dropDate: Date) => {
+    e.preventDefault();
+    if (!user || !firestore) return;
+    const todoId = e.dataTransfer.getData('todoId');
+    if (!todoId) return;
+
+    const todoRef = doc(firestore, 'users', user.uid, 'todos', todoId);
+    updateDocumentNonBlocking(todoRef, {
+        date: format(dropDate, "yyyy-MM-dd"),
+        updatedAt: serverTimestamp(),
+    });
+
+    toast({
+        title: "할 일이 이동되었습니다.",
+        description: `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
+    });
+  };
+
 
   const filteredTodos = useMemo(() => {
     if (!todos) return [];
@@ -297,6 +321,8 @@ export function Calendar() {
                 !isSameMonth(day, currentDate) && "bg-muted/50",
                 isToday && "bg-accent/50"
               )}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, day)}
             >
               <CardContent className="p-2 flex-grow flex flex-col">
                 <div className="flex justify-between items-center">
@@ -349,3 +375,5 @@ export function Calendar() {
     </div>
   );
 }
+
+    

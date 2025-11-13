@@ -6,7 +6,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { ImportanceIcon } from "./importance-icon";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useTransition } from "react";
+import { useTransition, DragEvent } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser } from "@/firebase";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
@@ -42,9 +42,16 @@ export function TodoItem({ todo, onSelect, isToday }: TodoItemProps) {
       }
     });
   };
+  
+  const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
+    e.dataTransfer.setData('todoId', todo.id);
+  };
+
 
   return (
     <Card
+      draggable
+      onDragStart={handleDragStart}
       className={cn(
         "cursor-pointer transition-colors duration-200 hover:bg-accent/20",
         todo.completed && "bg-muted/60",
@@ -84,3 +91,5 @@ export function TodoItem({ todo, onSelect, isToday }: TodoItemProps) {
     </Card>
   );
 }
+
+    
