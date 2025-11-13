@@ -91,9 +91,7 @@ export function Calendar() {
     if (!user) return;
     startDeleteTransition(async () => {
       try {
-        // First, delete Firestore data
         await deleteUserTodos(user.uid);
-        // Then, delete the user account
         await deleteUser(user);
         toast({ title: "계정이 성공적으로 삭제되었습니다." });
         // Redirect is handled by useAuthRedirect hook
@@ -102,7 +100,10 @@ export function Calendar() {
         toast({
           variant: "destructive",
           title: "계정 삭제 실패",
-          description: "계정을 삭제하는 중 오류가 발생했습니다. 다시 로그인한 후 시도해주세요.",
+          description:
+            error.code === 'auth/requires-recent-login'
+              ? "보안을 위해 다시 로그인한 후 시도해주세요."
+              : "계정을 삭제하는 중 오류가 발생했습니다.",
         });
       }
     });
@@ -338,3 +339,5 @@ export function Calendar() {
     </div>
   );
 }
+
+    
