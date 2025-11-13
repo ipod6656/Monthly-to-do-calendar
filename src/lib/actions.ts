@@ -4,7 +4,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getDb } from "@/firebase/server-init";
-import { collection, getDocs, writeBatch } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import type { Todo } from "./types";
 
 
