@@ -8,23 +8,6 @@ import { collection, getDocs, writeBatch } from "firebase/firestore";
 import type { Todo } from "./types";
 
 
-export async function deleteUserTodos(userId: string): Promise<void> {
-  const db = getDb();
-  const todosCol = collection(db, "users", userId, "todos");
-  const todoSnapshot = await getDocs(todosCol);
-
-  if (todoSnapshot.empty) {
-    return;
-  }
-
-  const batch = writeBatch(db);
-  todoSnapshot.docs.forEach((doc) => {
-    batch.delete(doc.ref);
-  });
-
-  await batch.commit();
-}
-
 export async function exportTodosByYear(year: number, userId: string): Promise<string> {
   const db = getDb();
   const todosCol = collection(db, "users", userId, "todos");

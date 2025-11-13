@@ -32,10 +32,10 @@ import { Input } from "@/components/ui/input";
 import { TodoDialog } from "@/components/todo-dialog";
 import { TodoItem } from "@/components/todo-item";
 import { cn } from "@/lib/utils";
-import { exportTodosByYear, deleteUserTodos } from "@/lib/actions";
+import { exportTodosByYear } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, query } from "firebase/firestore";
+import { collection, query, getDocs, writeBatch } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { useAuthRedirect } from "@/hooks/use-auth-redirect";
 import { deleteUser } from "firebase/auth";
@@ -88,15 +88,25 @@ export function Calendar() {
   };
 
   const handleDeleteAccount = () => {
-    if (!user) return;
-    const userId = user.uid;
+    if (!user || !firestore) return;
+    
     startDeleteTransition(async () => {
       try {
-        // First, delete the user's data from Firestore
-        await deleteUserTodos(userId);
-        // Then, delete the user from Firebase Auth
+        // Step 1: Delete all todos for the user in a batch
+        const todosCollectionRef = collection(firestore, "users", user.uid, "todos");
+        const todosSnapshot = await getDocs(todosCollectionRef);
+        const batch = writeBatch(firestore);
+        todosSnapshot.forEach((doc) => {
+          batch.delete(doc.ref);
+        });
+        await batch.commit();
+
+        // Step 2: Delete the user from Firebase Auth
         await deleteUser(user);
+        
         toast({ title: "계정이 성공적으로 삭제되었습니다." });
+        // The useAuthRedirect hook will handle navigation to /login
+
       } catch (error: any) {
         console.error("Error deleting account: ", error);
         toast({
@@ -105,7 +115,7 @@ export function Calendar() {
           description:
             error.code === 'auth/requires-recent-login'
               ? "보안을 위해 다시 로그인한 후 시도해주세요."
-              : "계정을 삭제하는 중 오류가 발생했습니다.",
+              : "계정을 삭제하는 중 오류가 발생했습니다. 다시 시도해주세요.",
         });
       }
     });
