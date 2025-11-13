@@ -15,9 +15,10 @@ import { doc, serverTimestamp } from "firebase/firestore";
 interface TodoItemProps {
   todo: Todo;
   onSelect: (todo: Todo) => void;
+  isToday?: boolean;
 }
 
-export function TodoItem({ todo, onSelect }: TodoItemProps) {
+export function TodoItem({ todo, onSelect, isToday }: TodoItemProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const { user } = useUser();
@@ -46,7 +47,8 @@ export function TodoItem({ todo, onSelect }: TodoItemProps) {
     <Card
       className={cn(
         "cursor-pointer transition-colors duration-200 hover:bg-accent/20",
-        todo.completed && "bg-muted/60"
+        todo.completed && "bg-muted/60",
+        isToday && !todo.completed && "bg-card/80"
       )}
       onClick={() => onSelect(todo)}
     >

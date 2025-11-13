@@ -250,6 +250,7 @@ export function Calendar() {
                       key={todo.id}
                       todo={todo}
                       onSelect={handleSelectTodo}
+                      isToday={isToday}
                     />
                   ))}
                 </div>
