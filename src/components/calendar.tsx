@@ -23,6 +23,7 @@ import {
   Download,
   Loader2,
   LogOut,
+  Trash2,
 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
@@ -31,12 +32,24 @@ import { Input } from "@/components/ui/input";
 import { TodoDialog } from "@/components/todo-dialog";
 import { TodoItem } from "@/components/todo-item";
 import { cn } from "@/lib/utils";
-import { exportTodosByYear } from "@/lib/actions";
+import { exportTodosByYear, deleteUserTodos } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, query } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { useAuthRedirect } from "@/hooks/use-auth-redirect";
+import { deleteUser } from "firebase/auth";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export function Calendar() {
   useAuthRedirect({ to: '/login', condition: 'unauthenticated' });
@@ -47,6 +60,7 @@ export function Calendar() {
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isExporting, startExportTransition] = useTransition();
+  const [isDeleting, startDeleteTransition] = useTransition();
 
   const auth = useAuth();
   const { user, isUserLoading } = useUser();
@@ -71,6 +85,27 @@ export function Calendar() {
     } catch (error) {
       toast({ variant: 'destructive', title: '로그아웃에 실패했습니다.' });
     }
+  };
+
+  const handleDeleteAccount = () => {
+    if (!user) return;
+    startDeleteTransition(async () => {
+      try {
+        // First, delete Firestore data
+        await deleteUserTodos(user.uid);
+        // Then, delete the user account
+        await deleteUser(user);
+        toast({ title: "계정이 성공적으로 삭제되었습니다." });
+        // Redirect is handled by useAuthRedirect hook
+      } catch (error: any) {
+        console.error("Error deleting account: ", error);
+        toast({
+          variant: "destructive",
+          title: "계정 삭제 실패",
+          description: "계정을 삭제하는 중 오류가 발생했습니다. 다시 로그인한 후 시도해주세요.",
+        });
+      }
+    });
   };
 
   const handleOpenNewTodoDialog = (date: Date) => {
@@ -170,7 +205,7 @@ export function Calendar() {
           <Button variant="outline" size="icon" onClick={nextMonth} className="border-primary/50">
             <ChevronRight className="h-4 w-4" />
           </Button>
-           <Button variant="outline" onClick={goToToday} className="ml-4 font-semibold border-primary/50">
+           <Button variant="outline" onClick={goToToday} className="ml-4 font-semibold border border-primary/50">
             Today
           </Button>
         </div>
@@ -197,6 +232,33 @@ export function Calendar() {
             <LogOut className="mr-2 h-4 w-4" />
             로그아웃
           </Button>
+           <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" disabled={isDeleting}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                회원 탈퇴
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>정말 탈퇴하시겠습니까?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  이 작업은 되돌릴 수 없습니다. 계정과 모든 할 일 데이터가 영구적으로 삭제됩니다.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting}
+                  className="bg-destructive hover:bg-destructive/90"
+                >
+                  {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  탈퇴
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </header>
 
@@ -238,7 +300,7 @@ export function Calendar() {
                       {format(day, "d")}
                     </time>
                     {isToday && (
-                       <Badge>
+                       <Badge className="bg-primary text-primary-foreground">
                         Today
                       </Badge>
                     )}
