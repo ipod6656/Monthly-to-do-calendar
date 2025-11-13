@@ -35,6 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, query } from "firebase/firestore";
 import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
+import { Badge } from "@/components/ui/badge";
 
 
 export function Calendar() {
@@ -105,6 +106,8 @@ export function Calendar() {
 
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
+  const goToToday = () => setCurrentDate(new Date());
+
 
   const handleExport = () => {
     if (!user) return;
@@ -163,6 +166,9 @@ export function Calendar() {
           <Button variant="outline" size="icon" onClick={nextMonth} className="border-primary/50">
             <ChevronRight className="h-4 w-4" />
           </Button>
+           <Button variant="outline" onClick={goToToday} className="ml-4">
+            Today
+          </Button>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative">
@@ -201,13 +207,14 @@ export function Calendar() {
           const todosForDay = filteredTodos.filter((todo) =>
             isSameDay(new Date(todo.date), day)
           );
+          const isToday = isSameDay(day, new Date());
           return (
             <Card
               key={day.toString()}
               className={cn(
-                "transition-colors duration-200 hover:bg-accent/30 flex flex-col",
+                "transition-colors duration-200 hover:bg-accent/30 flex flex-col relative",
                 !isSameMonth(day, currentDate) && "bg-muted/50",
-                isSameDay(day, new Date()) && "bg-accent/50"
+                isToday && "bg-accent/50"
               )}
             >
               <CardContent className="p-2 flex-grow flex flex-col">
@@ -216,11 +223,16 @@ export function Calendar() {
                     dateTime={format(day, "yyyy-MM-dd")}
                     className={cn(
                       "font-semibold",
-                      isSameDay(day, new Date()) && "text-accent-foreground"
+                       isToday && "text-accent-foreground"
                     )}
                   >
                     {format(day, "d")}
                   </time>
+                  {isToday && (
+                    <Badge variant="default_filled" className="text-xs">
+                      Today
+                    </Badge>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"
