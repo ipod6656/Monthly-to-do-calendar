@@ -166,7 +166,7 @@ export function Calendar() {
           <Button variant="outline" size="icon" onClick={nextMonth} className="border-primary/50">
             <ChevronRight className="h-4 w-4" />
           </Button>
-           <Button variant="outline" onClick={goToToday} className="ml-4">
+           <Button variant="outline" onClick={goToToday} className="ml-4 font-semibold border">
             Today
           </Button>
         </div>
@@ -219,20 +219,22 @@ export function Calendar() {
             >
               <CardContent className="p-2 flex-grow flex flex-col">
                 <div className="flex justify-between items-center">
-                  <time
-                    dateTime={format(day, "yyyy-MM-dd")}
-                    className={cn(
-                      "font-semibold",
-                       isToday && "text-accent-foreground"
+                  <div className="flex items-baseline gap-2">
+                    <time
+                      dateTime={format(day, "yyyy-MM-dd")}
+                      className={cn(
+                        "font-semibold",
+                        isToday && "text-accent-foreground"
+                      )}
+                    >
+                      {format(day, "d")}
+                    </time>
+                    {isToday && (
+                      <Badge variant="default_filled" className="text-xs">
+                        Today
+                      </Badge>
                     )}
-                  >
-                    {format(day, "d")}
-                  </time>
-                  {isToday && (
-                    <Badge variant="default_filled" className="text-xs">
-                      Today
-                    </Badge>
-                  )}
+                  </div>
                   <Button
                     variant="ghost"
                     size="icon"
