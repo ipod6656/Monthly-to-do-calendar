@@ -155,7 +155,7 @@ export function Calendar() {
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="w-48 text-center">
-            <h1 className="text-3xl font-bold font-headline text-primary">
+            <h1 className="text-3xl font-bold font-headline text-foreground">
               <div>{format(currentDate, "yyyy")}</div>
               <div>{format(currentDate, "MMMM")}</div>
             </h1>
