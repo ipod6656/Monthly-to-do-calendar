@@ -219,7 +219,7 @@ export function Calendar() {
             >
               <CardContent className="p-2 flex-grow flex flex-col">
                 <div className="flex justify-between items-center">
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex items-center gap-2">
                     <time
                       dateTime={format(day, "yyyy-MM-dd")}
                       className={cn(
