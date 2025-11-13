@@ -4,14 +4,10 @@ import { firebaseConfig } from './config';
 
 // Ensure the app is only initialized once
 if (!admin.apps.length) {
-  admin.initializeApp({
-    // Use environment variables in production
-    credential: admin.credential.cert({
-        projectId: firebaseConfig.projectId,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-    })
-  });
+  // In a serverless environment (like Firebase App Hosting or Cloud Functions),
+  // initializeApp() without arguments will use the default service account.
+  // For local development, you might need to set GOOGLE_APPLICATION_CREDENTIALS.
+  admin.initializeApp();
 }
 
 const db = getFirestore();

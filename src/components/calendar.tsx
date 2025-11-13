@@ -303,7 +303,7 @@ export function Calendar() {
                       {format(day, "d")}
                     </time>
                     {isToday && (
-                       <Badge className="bg-primary text-primary-foreground">
+                       <Badge>
                         Today
                       </Badge>
                     )}
