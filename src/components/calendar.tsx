@@ -166,7 +166,7 @@ export function Calendar() {
           <Button variant="outline" size="icon" onClick={nextMonth} className="border-primary/50">
             <ChevronRight className="h-4 w-4" />
           </Button>
-           <Button variant="outline" onClick={goToToday} className="ml-4 font-semibold border">
+           <Button variant="outline" onClick={goToToday} className="ml-4 font-semibold border-primary/50">
             Today
           </Button>
         </div>
