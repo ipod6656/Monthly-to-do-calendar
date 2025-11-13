@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Todo } from "@/lib/types";
@@ -145,7 +146,7 @@ export function Calendar() {
     <div className="flex flex-col bg-background text-foreground p-4 md:p-6 lg:p-8" style={{ height: 'var(--vh, 100vh)' }}>
       <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold font-headline text-primary">
+          <h1 className="text-3xl font-bold font-headline text-primary">
             Monthly to-do Calendar
           </h1>
         </div>
@@ -154,8 +155,9 @@ export function Calendar() {
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="w-40 text-center">
-            <h2 className="text-2xl font-semibold">
-              {format(currentDate, "yyyy MMMM")}
+            <h2 className="text-2xl font-semibold leading-tight">
+              <div>{format(currentDate, "yyyy")}</div>
+              <div>{format(currentDate, "MMMM")}</div>
             </h2>
           </div>
           <Button variant="outline" size="icon" onClick={nextMonth}>
