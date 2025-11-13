@@ -72,7 +72,7 @@ export function useCollection<T = any>(
     }
 
     // When a valid query is received, proceed with the subscription.
-    // No need to setIsLoading(true) here again unless you reset it somewhere.
+    setIsLoading(true);
     setError(null);
 
     // Directly use memoizedTargetRefOrQuery as it's assumed to be the final query

@@ -22,8 +22,9 @@ import {
   Search as SearchIcon,
   Download,
   Loader2,
+  LogOut,
 } from "lucide-react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,11 +35,11 @@ import { exportTodosByYear } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, query } from "firebase/firestore";
-import { initiateAnonymousSignIn } from "@/firebase/non-blocking-login";
 import { Badge } from "@/components/ui/badge";
-
+import { useAuthRedirect } from "@/hooks/use-auth-redirect";
 
 export function Calendar() {
+  useAuthRedirect({ to: '/login', condition: 'unauthenticated' });
   const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState("");
@@ -51,12 +52,6 @@ export function Calendar() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
 
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      initiateAnonymousSignIn(auth);
-    }
-  }, [isUserLoading, user, auth]);
-
   const todosRef = useMemoFirebase(() => {
     if (!user) return null;
     return collection(firestore, "users", user.uid, "todos");
@@ -68,6 +63,15 @@ export function Calendar() {
   }, [todosRef]);
 
   const { data: todos, isLoading: todosLoading } = useCollection<Todo>(todosQuery);
+
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      toast({ title: '로그아웃 되었습니다.' });
+    } catch (error) {
+      toast({ variant: 'destructive', title: '로그아웃에 실패했습니다.' });
+    }
+  };
 
   const handleOpenNewTodoDialog = (date: Date) => {
     setSelectedDate(date);
@@ -137,7 +141,7 @@ export function Calendar() {
     });
   };
 
-  if (isUserLoading || todosLoading) {
+  if (isUserLoading || (user && todosLoading)) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin" />
@@ -147,7 +151,7 @@ export function Calendar() {
 
   return (
     <div className="flex flex-col bg-background text-foreground p-4 md:p-6 lg:p-8" style={{ height: 'var(--vh, 100vh)' }}>
-      <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+       <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
           <h1 className="text-3xl font-bold font-headline text-primary">
             Monthly to-do Calendar
@@ -189,6 +193,10 @@ export function Calendar() {
             )}
             Export Year
           </Button>
+           <Button onClick={handleLogout} variant="outline">
+            <LogOut className="mr-2 h-4 w-4" />
+            로그아웃
+          </Button>
         </div>
       </header>
 
@@ -219,7 +227,7 @@ export function Calendar() {
             >
               <CardContent className="p-2 flex-grow flex flex-col">
                 <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
+                   <div className="flex items-center gap-2">
                     <time
                       dateTime={format(day, "yyyy-MM-dd")}
                       className={cn(
