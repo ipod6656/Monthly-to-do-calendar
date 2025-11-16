@@ -181,11 +181,9 @@ export function Calendar() {
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
-    // --- Reordering logic within the same day ---
     const targetDate = new Date(targetTodo.date);
+
     if (!isSameDay(new Date(draggedTodo.date), targetDate)) {
-        // This is a move across dates, which should be handled by handleDropOnDay.
-        // We'll call it manually here to ensure the logic is consistent.
         handleDropOnDay(e, targetDate);
         return;
     }
@@ -194,27 +192,26 @@ export function Calendar() {
       .filter(t => isSameDay(new Date(t.date), targetDate))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
 
-    // Find the original index of the dragged item
     const oldIndex = dayTodos.findIndex(t => t.id === draggedTodoId);
-    if (oldIndex === -1) return; // Should not happen
+    if (oldIndex === -1) return; 
 
-    // Remove the dragged item from its original position
-    const itemToMove = dayTodos.splice(oldIndex, 1)[0];
+    const [itemToMove] = dayTodos.splice(oldIndex, 1);
   
-    // Find the new index where the item was dropped
-    const targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
-    if (targetIndex === -1) { // Should not happen
-        dayTodos.push(itemToMove);
-    } else {
-        // Insert the dragged item before the target item
-        dayTodos.splice(targetIndex, 0, itemToMove);
-    }
+    let targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
 
-    // Re-assign order values to all todos for the day to ensure consistency
+    const rect = (e.target as HTMLElement).closest('[data-todo-id]')?.getBoundingClientRect();
+    const isDroppingOnLowerHalf = rect && e.clientY > rect.top + rect.height / 2;
+
+    if (isDroppingOnLowerHalf) {
+        targetIndex += 1;
+    }
+    
+    dayTodos.splice(targetIndex, 0, itemToMove);
+
     const batch = writeBatch(firestore);
     dayTodos.forEach((todo, index) => {
         const todoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
-        const newOrder = (index + 1) * 10; // Multiply by 10 to leave space for future inserts
+        const newOrder = (index + 1) * 10; 
         if (todo.order !== newOrder) {
             batch.update(todoRef, { order: newOrder });
         }
@@ -433,7 +430,7 @@ export function Calendar() {
                       key={todo.id}
                       todo={todo}
                       onSelect={handleSelectTodo}
-                      onDropOnTodo={handleDropOnTodo}
+                      onDrop={handleDropOnTodo}
                       isToday={isToday}
                     />
                   ))}
@@ -452,3 +449,5 @@ export function Calendar() {
     </div>
   );
 }
+
+    
