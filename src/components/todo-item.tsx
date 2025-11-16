@@ -53,12 +53,9 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    e.stopPropagation();
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
     onDrop(e, todo);
   };
   

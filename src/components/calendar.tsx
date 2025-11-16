@@ -158,7 +158,7 @@ export function Calendar() {
 
   const handleDropOnTodoItem = (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => {
     e.preventDefault();
-    e.stopPropagation();
+    e.stopPropagation(); // Prevent handleDropOnDay from firing
     if (!user || !firestore || !todos) return;
     
     const draggedTodoId = e.dataTransfer.getData('todoId');
@@ -167,7 +167,9 @@ export function Calendar() {
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
+    // Logic for reordering within the same day
     if (isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))) {
+      // Ensure both items have a valid order value to swap
       if (typeof draggedTodo.order === 'number' && typeof targetTodo.order === 'number') {
         const draggedRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
         const targetRef = doc(firestore, 'users', user.uid, 'todos', targetTodo.id);
@@ -175,22 +177,12 @@ export function Calendar() {
         // Swap the order values
         updateDocumentNonBlocking(draggedRef, { order: targetTodo.order, updatedAt: serverTimestamp() });
         updateDocumentNonBlocking(targetRef, { order: draggedTodo.order, updatedAt: serverTimestamp() });
-
       } else {
         console.warn("Could not reorder todos because order value was missing on one of them.");
       }
     } else {
-        // This case is handled by handleDropOnDay, but as a fallback:
-        const dropDate = new Date(targetTodo.date);
-        const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
-        updateDocumentNonBlocking(todoRef, {
-            date: format(dropDate, "yyyy-MM-dd"),
-            updatedAt: serverTimestamp(),
-        });
-        toast({
-            title: "할 일이 이동되었습니다.",
-            description: `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
-        });
+        // Logic for moving to a different day (delegated to handleDropOnDay logic)
+        handleDropOnDay(e, new Date(targetTodo.date));
     }
   };
 
