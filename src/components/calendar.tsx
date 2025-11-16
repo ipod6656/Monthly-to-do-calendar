@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
 import { exportTodosByYear } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, query, getDocs, writeBatch, doc, serverTimestamp, WriteBatch } from "firebase/firestore";
+import { collection, query, getDocs, writeBatch, doc } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { deleteUser } from "firebase/auth";
 import {
@@ -139,18 +139,7 @@ export function Calendar() {
 
     const draggedTodoId = e.dataTransfer.getData('todoId');
     if (!draggedTodoId) return;
-
-    const draggedTodo = todos.find(t => t.id === draggedTodoId);
-    if (!draggedTodo) return;
-
-    // If dropping on the same day's empty space, do nothing complex, just move to end
-    if (isSameDay(new Date(draggedTodo.date), dropDate)) {
-       const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
-       updateDocumentNonBlocking(todoRef, { order: Date.now() });
-       return;
-    }
-
-    // --- Logic for dropping from a DIFFERENT day ---
+    
     const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
     
     updateDocumentNonBlocking(todoRef, {
@@ -178,7 +167,6 @@ export function Calendar() {
 
     const targetDate = new Date(targetTodo.date);
     
-    // Determine if dropping on the lower half of the target
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const isDroppingOnLowerHalf = e.clientY > rect.top + rect.height / 2;
     
@@ -186,32 +174,27 @@ export function Calendar() {
       .filter(t => isSameDay(new Date(t.date), targetDate))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
 
-    // Remove the dragged todo from its original position
-    const withoutDragged = dayTodos.filter(t => t.id !== draggedTodoId);
+    // Exclude the dragged todo for now
+    const dayTodosWithoutDragged = dayTodos.filter(t => t.id !== draggedTodoId);
 
-    // Find the target's new index in the list without the dragged item
-    let targetIndex = withoutDragged.findIndex(t => t.id === targetTodo.id);
+    let targetIndex = dayTodosWithoutDragged.findIndex(t => t.id === targetTodo.id);
     
-    // Adjust index if dropping on the lower half
-    const newIndex = isDroppingOnLowerHalf ? targetIndex + 1 : targetIndex;
+    if (isDroppingOnLowerHalf) {
+      targetIndex++;
+    }
 
-    // Create a new todo object for the dragged item with the updated date
-    const movedTodo = { ...draggedTodo, date: format(targetDate, "yyyy-MM-dd") };
+    const finalDayTodos = [...dayTodosWithoutDragged];
+    finalDayTodos.splice(targetIndex, 0, draggedTodo);
 
-    // Insert the dragged item at the new position
-    withoutDragged.splice(newIndex, 0, movedTodo);
-
-    const finalDayTodos = withoutDragged;
-
-    // Re-assign order values based on the new array order
     const batch = writeBatch(firestore);
     finalDayTodos.forEach((todo, index) => {
         const todoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
         const newOrder = (index + 1) * 10;
         
-        // Update both order and date for the dragged todo
-        // or just the order for existing todos if it has changed
-        if (todo.id === draggedTodoId) {
+        const isMovedItem = todo.id === draggedTodoId;
+        const dateChanged = !isSameDay(new Date(draggedTodo.date), targetDate);
+
+        if (isMovedItem) {
              batch.update(todoRef, { order: newOrder, date: format(targetDate, "yyyy-MM-dd") });
         } else if (todo.order !== newOrder) {
             batch.update(todoRef, { order: newOrder });
@@ -261,7 +244,15 @@ export function Calendar() {
     if (!user || !todos) return;
     startExportTransition(async () => {
       try {
-        const csvString = await exportTodosByYear(currentDate.getFullYear(), todos);
+        const plainTodos = todos.map(todo => ({
+          id: todo.id,
+          title: todo.title,
+          date: todo.date,
+          importance: todo.importance,
+          completed: todo.completed,
+        }));
+
+        const csvString = await exportTodosByYear(currentDate.getFullYear(), plainTodos);
         const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
@@ -451,3 +442,5 @@ export function Calendar() {
     </div>
   );
 }
+
+    

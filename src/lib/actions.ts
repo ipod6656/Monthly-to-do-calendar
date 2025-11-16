@@ -3,13 +3,21 @@
 
 import type { Todo } from "./types";
 
-export async function exportTodosByYear(year: number, todos: Todo[]): Promise<string> {
+// The Todo object coming from the client might not have an ID if it's new
+// but for printing, we can assume it's a full Todo with an ID.
+type PrintableTodo = Omit<Todo, 'order' | 'completed'> & {
+  id: string;
+  completed: boolean;
+};
+
+export async function exportTodosByYear(year: number, todos: PrintableTodo[]): Promise<string> {
   const yearTodos = todos.filter(
     (todo) => new Date(todo.date).getFullYear() === year
   );
 
   if (yearTodos.length === 0) {
-    return "No todos found for the selected year.";
+    // This will be caught by the client and shown in a toast.
+    throw new Error("No todos found for the selected year.");
   }
 
   const headers = [
@@ -32,7 +40,9 @@ export async function exportTodosByYear(year: number, todos: Todo[]): Promise<st
     csvRows.push(values);
   });
 
-  // Add BOM for UTF-8
+  // Add BOM for UTF-8 to ensure Excel reads Korean characters correctly.
   const BOM = "\uFEFF";
   return BOM + csvRows.join("\n");
 }
+
+    
