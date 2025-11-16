@@ -147,42 +147,13 @@ export function Calendar() {
         const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
         updateDocumentNonBlocking(todoRef, {
             date: format(dropDate, "yyyy-MM-dd"),
+            order: Date.now(), // Set order to current timestamp to place it at the end
             updatedAt: serverTimestamp(),
         });
         toast({
             title: "할 일이 이동되었습니다.",
             description: `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
         });
-    }
-  };
-
-  const handleDropOnTodoItem = (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => {
-    e.preventDefault();
-    e.stopPropagation(); // Prevent handleDropOnDay from firing
-    if (!user || !firestore || !todos) return;
-    
-    const draggedTodoId = e.dataTransfer.getData('todoId');
-    if (!draggedTodoId || draggedTodoId === targetTodo.id) return;
-
-    const draggedTodo = todos.find(t => t.id === draggedTodoId);
-    if (!draggedTodo) return;
-
-    // If dragged from another date, handle date change first
-    if (!isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))) {
-      handleDropOnDay(e, new Date(targetTodo.date));
-      return;
-    }
-
-    // Logic for reordering within the same day
-    if (typeof draggedTodo.order === 'number' && typeof targetTodo.order === 'number') {
-      const draggedRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
-      const targetRef = doc(firestore, 'users', user.uid, 'todos', targetTodo.id);
-      
-      // Swap the order values
-      updateDocumentNonBlocking(draggedRef, { order: targetTodo.order, updatedAt: serverTimestamp() });
-      updateDocumentNonBlocking(targetRef, { order: draggedTodo.order, updatedAt: serverTimestamp() });
-    } else {
-      console.warn("Could not reorder todos because order value was missing on one of them.");
     }
   };
 
@@ -388,7 +359,6 @@ export function Calendar() {
                       key={todo.id}
                       todo={todo}
                       onSelect={handleSelectTodo}
-                      onDrop={handleDropOnTodoItem}
                       isToday={isToday}
                     />
                   ))}
