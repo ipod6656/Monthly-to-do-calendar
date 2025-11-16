@@ -15,7 +15,7 @@ import { doc, serverTimestamp } from "firebase/firestore";
 interface TodoItemProps {
   todo: Todo;
   onSelect: (todo: Todo) => void;
-  onDrop: (e: DragEvent<HTMLDivElement>) => void;
+  onDrop: (e: DragEvent<HTMLDivElement>, todo: Todo) => void;
   isToday?: boolean;
 }
 
@@ -47,22 +47,18 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     e.dataTransfer.setData('todoId', todo.id);
     e.dataTransfer.setData('todoOrder', String(todo.order ?? ''));
-    // Stop propagation to prevent parent draggable elements from interfering
     e.stopPropagation();
   };
   
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    e.stopPropagation();
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.stopPropagation(); // Prevent the drop event from bubbling up to the day cell
-    onDrop(e);
+    onDrop(e, todo);
   };
   
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.stopPropagation(); // Prevent event bubbling
     onSelect(todo);
   };
 

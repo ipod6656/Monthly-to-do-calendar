@@ -91,7 +91,6 @@ export function Calendar() {
     
     startDeleteTransition(async () => {
       try {
-        // Step 1: Delete all todos for the user in a batch
         const todosCollectionRef = collection(firestore, "users", user.uid, "todos");
         const todosSnapshot = await getDocs(todosCollectionRef);
         const batch = writeBatch(firestore);
@@ -100,11 +99,9 @@ export function Calendar() {
         });
         await batch.commit();
 
-        // Step 2: Delete the user from Firebase Auth
         await deleteUser(user);
         
         toast({ title: "계정이 성공적으로 삭제되었습니다." });
-        // The useAuthRedirect hook will handle navigation to /login
 
       } catch (error: any) {
         console.error("Error deleting account: ", error);
@@ -133,12 +130,11 @@ export function Calendar() {
   };
   
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault(); // Necessary to allow dropping
+    e.preventDefault();
   };
 
-  const handleDropOnDayCell = (e: DragEvent<HTMLDivElement>, dropDate: Date) => {
+  const handleDropOnDay = (e: DragEvent<HTMLDivElement>, dropDate: Date) => {
     e.preventDefault();
-    e.stopPropagation(); // Stop propagation to prevent parent handlers from firing
     if (!user || !firestore || !todos) return;
 
     const draggedTodoId = e.dataTransfer.getData('todoId');
@@ -147,7 +143,6 @@ export function Calendar() {
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
-    // This handler is only for moving to a new date cell
     if (!isSameDay(new Date(draggedTodo.date), dropDate)) {
         const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
         updateDocumentNonBlocking(todoRef, {
@@ -163,7 +158,7 @@ export function Calendar() {
 
   const handleDropOnTodoItem = (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => {
     e.preventDefault();
-    e.stopPropagation(); // Stop propagation to prevent parent handlers from firing
+    e.stopPropagation();
     if (!user || !firestore || !todos) return;
     
     const draggedTodoId = e.dataTransfer.getData('todoId');
@@ -172,21 +167,22 @@ export function Calendar() {
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
-    // This handler is only for reordering within the same day
+    // Logic for reordering within the same day
     if (isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))) {
-        // Ensure both orders are valid numbers before swapping
-        if (typeof draggedTodo.order === 'number' && typeof targetTodo.order === 'number') {
-            const draggedRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
-            const targetRef = doc(firestore, 'users', user.uid, 'todos', targetTodo.id);
-            
-            // Swap orders by updating each document
-            updateDocumentNonBlocking(draggedRef, { order: targetTodo.order, updatedAt: serverTimestamp() });
-            updateDocumentNonBlocking(targetRef, { order: draggedTodo.order, updatedAt: serverTimestamp() });
-        } else {
-            console.warn("Could not reorder todos because order value was missing on one of them.");
-        }
+      // Ensure both orders are valid numbers before swapping
+      if (typeof draggedTodo.order === 'number' && typeof targetTodo.order === 'number') {
+        const draggedRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
+        const targetRef = doc(firestore, 'users', user.uid, 'todos', targetTodo.id);
+        
+        // Swap orders by updating each document
+        updateDocumentNonBlocking(draggedRef, { order: targetTodo.order, updatedAt: serverTimestamp() });
+        updateDocumentNonBlocking(targetRef, { order: draggedTodo.order, updatedAt: serverTimestamp() });
+
+      } else {
+        console.warn("Could not reorder todos because order value was missing on one of them.");
+      }
     } else {
-        // If dropped on a todo in a different day, treat it as a date change
+       // If dropped on a todo in a different day, treat it as a date change
         const dropDate = new Date(targetTodo.date);
         const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
         updateDocumentNonBlocking(todoRef, {
@@ -367,7 +363,7 @@ export function Calendar() {
                 isToday && "bg-accent/50"
               )}
               onDragOver={handleDragOver}
-              onDrop={(e) => handleDropOnDayCell(e, day)}
+              onDrop={(e) => handleDropOnDay(e, day)}
             >
               <CardContent className="p-2 flex-grow flex flex-col">
                 <div className="flex justify-between items-center">
@@ -402,7 +398,7 @@ export function Calendar() {
                       key={todo.id}
                       todo={todo}
                       onSelect={handleSelectTodo}
-                      onDrop={(e) => handleDropOnTodoItem(e, todo)}
+                      onDrop={handleDropOnTodoItem}
                       isToday={isToday}
                     />
                   ))}
