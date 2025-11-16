@@ -46,7 +46,7 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     e.dataTransfer.setData('todoId', todo.id);
-    e.dataTransfer.setData('todoOrder', String(todo.order));
+    e.dataTransfer.setData('todoOrder', String(todo.order ?? ''));
   };
   
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -98,3 +98,5 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
     </Card>
   );
 }
+
+    
