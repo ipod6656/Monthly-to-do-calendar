@@ -140,14 +140,7 @@ export function Calendar() {
     const draggedTodoId = e.dataTransfer.getData('todoId');
     if (!draggedTodoId) return;
     
-    const draggedTodo = todos.find(t => t.id === draggedTodoId);
-    if (!draggedTodo) return;
-
     const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
-    
-    // Check if it's the same day, if so, move to the end.
-    // This handles dropping a todo into the empty space of the same day.
-    const isSameDayDrop = isSameDay(new Date(draggedTodo.date), dropDate);
     
     updateDocumentNonBlocking(todoRef, {
         date: format(dropDate, "yyyy-MM-dd"),
@@ -156,8 +149,8 @@ export function Calendar() {
     });
     
     toast({
-        title: isSameDayDrop ? "할 일이 목록의 마지막으로 이동되었습니다." : "할 일이 이동되었습니다.",
-        description: isSameDayDrop ? undefined : `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
+        title: "할 일이 이동되었습니다.",
+        description: `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
     });
   };
   
@@ -173,49 +166,39 @@ export function Calendar() {
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
-    // Reordering is only allowed within the same day.
-    if (!isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))) {
-        handleDropOnDay(e, new Date(targetTodo.date));
-        return;
-    }
-
-    let dayTodos = todos
-      .filter(t => isSameDay(new Date(t.date), new Date(targetTodo.date)))
-      .sort((a, b) => (a.order || 0) - (b.order || 0));
-
-    const draggedIndex = dayTodos.findIndex(t => t.id === draggedTodo.id);
-    let targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
-
-    if (draggedIndex === -1 || targetIndex === -1) {
-      console.error("Could not find dragged or target todo in the sorted list.");
-      return;
-    }
-
+    const targetDate = new Date(targetTodo.date);
+    
     // Determine if dropping on the lower half of the target
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const isDroppingOnLowerHalf = e.clientY > rect.top + rect.height / 2;
-
-    // Remove the dragged item to be re-inserted
-    const [itemToMove] = dayTodos.splice(draggedIndex, 1);
     
-    // Adjust target index if the dragged item was before the target
-    targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
+    // Filter todos for the target day, EXCLUDING the one being dragged
+    let dayTodos = todos
+      .filter(t => isSameDay(new Date(t.date), targetDate) && t.id !== draggedTodoId)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
 
+    // Find the target's index in the filtered list
+    let targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
+    
     // If dropping on the lower half, insert after the target
-    if (isDroppingOnLowerHalf) {
-        targetIndex += 1;
-    }
-    
+    const newIndex = isDroppingOnLowerHalf ? targetIndex + 1 : targetIndex;
+
+    // Create a new todo object for the dragged item with the updated date
+    const movedTodo = { ...draggedTodo, date: format(targetDate, "yyyy-MM-dd") };
+
     // Insert the dragged item at the new position
-    dayTodos.splice(targetIndex, 0, itemToMove);
+    dayTodos.splice(newIndex, 0, movedTodo);
 
     // Re-assign order values based on the new array order
     const batch = writeBatch(firestore);
     dayTodos.forEach((todo, index) => {
         const todoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
-        const newOrder = (index + 1) * 10; // Use increments of 10 for spacing
-        // Only update if the order has actually changed to avoid unnecessary writes
-        if (todo.order !== newOrder) {
+        const newOrder = (index + 1) * 10;
+        
+        // Update both order and date for the dragged todo
+        if (todo.id === draggedTodoId) {
+             batch.update(todoRef, { order: newOrder, date: format(targetDate, "yyyy-MM-dd") });
+        } else if (todo.order !== newOrder) { // Only update others if their order changes
             batch.update(todoRef, { order: newOrder });
         }
     });
@@ -452,5 +435,3 @@ export function Calendar() {
     </div>
   );
 }
-
-    

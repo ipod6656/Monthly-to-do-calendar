@@ -145,4 +145,3 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
     </Card>
   );
 }
-
