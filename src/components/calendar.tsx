@@ -172,6 +172,7 @@ export function Calendar() {
         const draggedRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
         const targetRef = doc(firestore, 'users', user.uid, 'todos', targetTodo.id);
         
+        // Swap the order values
         updateDocumentNonBlocking(draggedRef, { order: targetTodo.order, updatedAt: serverTimestamp() });
         updateDocumentNonBlocking(targetRef, { order: draggedTodo.order, updatedAt: serverTimestamp() });
 
@@ -179,6 +180,7 @@ export function Calendar() {
         console.warn("Could not reorder todos because order value was missing on one of them.");
       }
     } else {
+        // This case is handled by handleDropOnDay, but as a fallback:
         const dropDate = new Date(targetTodo.date);
         const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
         updateDocumentNonBlocking(todoRef, {
