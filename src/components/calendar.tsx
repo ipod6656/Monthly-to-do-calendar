@@ -158,7 +158,7 @@ export function Calendar() {
 
   const handleDropOnTodoItem = (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => {
     e.preventDefault();
-    e.stopPropagation(); // Prevent handleDropOnDay from being called
+    e.stopPropagation();
     if (!user || !firestore || !todos) return;
     
     const draggedTodoId = e.dataTransfer.getData('todoId');
@@ -167,14 +167,11 @@ export function Calendar() {
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
-    // Logic for reordering within the same day
     if (isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))) {
-      // Ensure both orders are valid numbers before swapping
       if (typeof draggedTodo.order === 'number' && typeof targetTodo.order === 'number') {
         const draggedRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
         const targetRef = doc(firestore, 'users', user.uid, 'todos', targetTodo.id);
         
-        // Swap orders by updating each document
         updateDocumentNonBlocking(draggedRef, { order: targetTodo.order, updatedAt: serverTimestamp() });
         updateDocumentNonBlocking(targetRef, { order: draggedTodo.order, updatedAt: serverTimestamp() });
 
@@ -182,7 +179,6 @@ export function Calendar() {
         console.warn("Could not reorder todos because order value was missing on one of them.");
       }
     } else {
-       // If dropped on a todo in a different day, treat it as a date change
         const dropDate = new Date(targetTodo.date);
         const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
         updateDocumentNonBlocking(todoRef, {

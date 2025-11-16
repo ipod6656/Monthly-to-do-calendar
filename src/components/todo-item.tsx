@@ -6,7 +6,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { ImportanceIcon } from "./importance-icon";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useTransition, DragEvent } from "react";
+import { useTransition, DragEvent, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser } from "@/firebase";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
@@ -24,6 +24,7 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   const { toast } = useToast();
   const { user } = useUser();
   const firestore = useFirestore();
+  const [mouseDownTime, setMouseDownTime] = useState(0);
 
   const handleCheckedChange = (checked: boolean) => {
     if (!user || !firestore) return;
@@ -47,7 +48,6 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     e.dataTransfer.setData('todoId', todo.id);
     e.dataTransfer.setData('todoOrder', String(todo.order ?? ''));
-    // Stop propagation to prevent parent draggable elements from interfering
     e.stopPropagation();
   };
   
@@ -57,14 +57,19 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    // This calls the parent's onDrop handler, passing the event and this todo item
+    e.preventDefault();
+    e.stopPropagation();
     onDrop(e, todo);
   };
   
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Only trigger select if not dragging
-    if (e.currentTarget.getAttribute('draggable') === 'true') {
-        onSelect(todo);
+  const handleMouseDown = () => {
+    setMouseDownTime(Date.now());
+  };
+
+  const handleMouseUp = () => {
+    const timePressed = Date.now() - mouseDownTime;
+    if (timePressed < 200) { // If it's a quick click, not a drag
+      onSelect(todo);
     }
   };
 
@@ -74,7 +79,8 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      onClick={handleClick}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
       className={cn(
         "cursor-pointer transition-colors duration-200 hover:bg-accent/20",
         todo.completed && "bg-muted/60",
