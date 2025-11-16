@@ -167,22 +167,22 @@ export function Calendar() {
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
+    // If dragged from another date, handle date change first
+    if (!isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))) {
+      handleDropOnDay(e, new Date(targetTodo.date));
+      return;
+    }
+
     // Logic for reordering within the same day
-    if (isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))) {
-      // Ensure both items have a valid order value to swap
-      if (typeof draggedTodo.order === 'number' && typeof targetTodo.order === 'number') {
-        const draggedRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
-        const targetRef = doc(firestore, 'users', user.uid, 'todos', targetTodo.id);
-        
-        // Swap the order values
-        updateDocumentNonBlocking(draggedRef, { order: targetTodo.order, updatedAt: serverTimestamp() });
-        updateDocumentNonBlocking(targetRef, { order: draggedTodo.order, updatedAt: serverTimestamp() });
-      } else {
-        console.warn("Could not reorder todos because order value was missing on one of them.");
-      }
+    if (typeof draggedTodo.order === 'number' && typeof targetTodo.order === 'number') {
+      const draggedRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
+      const targetRef = doc(firestore, 'users', user.uid, 'todos', targetTodo.id);
+      
+      // Swap the order values
+      updateDocumentNonBlocking(draggedRef, { order: targetTodo.order, updatedAt: serverTimestamp() });
+      updateDocumentNonBlocking(targetRef, { order: draggedTodo.order, updatedAt: serverTimestamp() });
     } else {
-        // Logic for moving to a different day (delegated to handleDropOnDay logic)
-        handleDropOnDay(e, new Date(targetTodo.date));
+      console.warn("Could not reorder todos because order value was missing on one of them.");
     }
   };
 
