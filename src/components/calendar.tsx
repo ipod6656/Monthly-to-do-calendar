@@ -142,15 +142,12 @@ export function Calendar() {
     if (!user || !firestore || !todos) return;
 
     const draggedTodoId = e.dataTransfer.getData('todoId');
-    const draggedTodoOrderStr = e.dataTransfer.getData('todoOrder');
     if (!draggedTodoId) return;
-    
-    const draggedTodoOrder = draggedTodoOrderStr ? Number(draggedTodoOrderStr) : undefined;
 
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
-    // Case 1: Dropping on a different day
+    // Case 1: Dropping on an empty day cell (moving to a new date)
     if (targetTodo === undefined) {
       if (!isSameDay(new Date(draggedTodo.date), dropDate)) {
         const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
@@ -166,7 +163,7 @@ export function Calendar() {
       return;
     }
 
-    // Case 2: Reordering within the same day
+    // Case 2: Dropping on another todo item (reordering)
     if (
       draggedTodoId !== targetTodo.id &&
       isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))
@@ -176,15 +173,10 @@ export function Calendar() {
         const draggedRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
         const targetRef = doc(firestore, 'users', user.uid, 'todos', targetTodo.id);
         
-        const batch = writeBatch(firestore);
-        // Swap orders
-        batch.update(draggedRef, { order: targetTodo.order });
-        batch.update(targetRef, { order: draggedTodo.order });
+        // Swap orders by updating each document
+        updateDocumentNonBlocking(draggedRef, { order: targetTodo.order });
+        updateDocumentNonBlocking(targetRef, { order: draggedTodo.order });
   
-        batch.commit().catch(err => {
-          console.error("Failed to reorder todos", err);
-          toast({ variant: 'destructive', title: '순서 변경에 실패했습니다.'});
-        });
       } else {
          console.warn("Could not reorder todos because order value was missing on one of them.");
       }
@@ -413,5 +405,3 @@ export function Calendar() {
     </div>
   );
 }
-
-    
