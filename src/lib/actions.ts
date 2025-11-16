@@ -1,7 +1,6 @@
 
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getDb } from "@/firebase/server-init";
 import { collection, getDocs } from "firebase/firestore";
