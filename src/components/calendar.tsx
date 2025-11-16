@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
 import { exportTodosByYear } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, query, getDocs, writeBatch, doc, serverTimestamp } from "firebase/firestore";
+import { collection, query, getDocs, writeBatch, doc, serverTimestamp, WriteBatch } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { deleteUser } from "firebase/auth";
 import {
@@ -143,19 +143,17 @@ export function Calendar() {
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
-    // Only update if the date is different
-    if (!isSameDay(new Date(draggedTodo.date), dropDate)) {
-        const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
-        updateDocumentNonBlocking(todoRef, {
-            date: format(dropDate, "yyyy-MM-dd"),
-            order: Date.now(), // Set order to current timestamp to place it at the end
-            updatedAt: serverTimestamp(),
-        });
-        toast({
-            title: "할 일이 이동되었습니다.",
-            description: `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
-        });
-    }
+    // Move to the end of the list on the new day
+    const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
+    updateDocumentNonBlocking(todoRef, {
+        date: format(dropDate, "yyyy-MM-dd"),
+        order: Date.now(), // Set order to current timestamp to place it at the end
+        updatedAt: serverTimestamp(),
+    });
+    toast({
+        title: "할 일이 이동되었습니다.",
+        description: `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
+    });
   };
   
   const handleDropOnTodo = (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => {
@@ -169,28 +167,53 @@ export function Calendar() {
   
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
-  
-    // --- Reordering logic ---
-    if (isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))) {
-      const dayTodos = todos
-        .filter(t => isSameDay(new Date(t.date), new Date(targetTodo.date)))
-        .sort((a, b) => (a.order || 0) - (b.order || 0));
-  
-      const targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
-  
-      if (targetIndex === -1) return;
-  
-      // Get the order value of the item before the target
-      // If dropping on the first item, the new order will be slightly less than the first item's order
-      const prevOrder = targetIndex > 0 ? dayTodos[targetIndex - 1].order : null;
-      const targetOrder = dayTodos[targetIndex].order;
-  
-      // Default to timestamps if order is missing
-      const newOrder = (prevOrder ?? (targetOrder ?? new Date(targetTodo.date).getTime()) - 2000) + 1000;
-  
-      const draggedTodoRef = doc(firestore, "users", user.uid, "todos", draggedTodoId);
-      updateDocumentNonBlocking(draggedTodoRef, { order: newOrder, updatedAt: serverTimestamp() });
+
+    // If dragged to a different date, let handleDropOnDay handle it.
+    if (!isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))) {
+        return;
     }
+  
+    // --- Reordering logic within the same day ---
+    const dayTodos = todos
+      .filter(t => isSameDay(new Date(t.date), new Date(targetTodo.date)))
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    // Remove the dragged item from its original position
+    const oldIndex = dayTodos.findIndex(t => t.id === draggedTodoId);
+    if (oldIndex > -1) {
+        dayTodos.splice(oldIndex, 1);
+    }
+  
+    // Find the new index where the item was dropped
+    const targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
+  
+    // Insert the dragged item at the target index
+    if (targetIndex > -1) {
+        dayTodos.splice(targetIndex, 0, draggedTodo);
+    } else {
+        // Failsafe: if target not found, add to end
+        dayTodos.push(draggedTodo);
+    }
+
+    // Re-assign order values to all todos for the day to ensure consistency
+    const batch = writeBatch(firestore);
+    dayTodos.forEach((todo, index) => {
+        const todoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
+        // Multiply by 10 to leave space for future inserts without re-indexing everything
+        const newOrder = (index + 1) * 10;
+        if (todo.order !== newOrder) {
+            batch.update(todoRef, { order: newOrder, updatedAt: serverTimestamp() });
+        }
+    });
+
+    batch.commit().catch(err => {
+        console.error("Reorder batch commit failed", err);
+        toast({
+            variant: "destructive",
+            title: "순서 변경 실패",
+            description: "데이터베이스 오류가 발생했습니다. 다시 시도해주세요."
+        });
+    });
   };
 
 
@@ -415,3 +438,5 @@ export function Calendar() {
     </div>
   );
 }
+
+    
