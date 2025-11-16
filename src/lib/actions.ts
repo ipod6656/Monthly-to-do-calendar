@@ -1,21 +1,10 @@
 
 "use server";
 
-import { z } from "zod";
-import { getDb } from "@/firebase/server-init";
-import { collection, getDocs } from "firebase/firestore";
 import type { Todo } from "./types";
 
-
-export async function exportTodosByYear(year: number, userId: string): Promise<string> {
-  const db = getDb();
-  const todosCol = collection(db, "users", userId, "todos");
-  const todoSnapshot = await getDocs(todosCol);
-  const allTodos = todoSnapshot.docs.map(
-    (doc) => ({ ...doc.data(), id: doc.id } as Todo)
-  );
-
-  const yearTodos = allTodos.filter(
+export async function exportTodosByYear(year: number, todos: Todo[]): Promise<string> {
+  const yearTodos = todos.filter(
     (todo) => new Date(todo.date).getFullYear() === year
   );
 

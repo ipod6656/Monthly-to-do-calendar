@@ -139,13 +139,23 @@ export function Calendar() {
 
     const draggedTodoId = e.dataTransfer.getData('todoId');
     if (!draggedTodoId) return;
-    
+
+    const draggedTodo = todos.find(t => t.id === draggedTodoId);
+    if (!draggedTodo) return;
+
+    // If dropping on the same day's empty space, do nothing complex, just move to end
+    if (isSameDay(new Date(draggedTodo.date), dropDate)) {
+       const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
+       updateDocumentNonBlocking(todoRef, { order: Date.now() });
+       return;
+    }
+
+    // --- Logic for dropping from a DIFFERENT day ---
     const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
     
     updateDocumentNonBlocking(todoRef, {
         date: format(dropDate, "yyyy-MM-dd"),
         order: Date.now(), // Set order to current timestamp to place it at the end
-        updatedAt: serverTimestamp(),
     });
     
     toast({
@@ -172,33 +182,38 @@ export function Calendar() {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const isDroppingOnLowerHalf = e.clientY > rect.top + rect.height / 2;
     
-    // Filter todos for the target day, EXCLUDING the one being dragged
     let dayTodos = todos
-      .filter(t => isSameDay(new Date(t.date), targetDate) && t.id !== draggedTodoId)
+      .filter(t => isSameDay(new Date(t.date), targetDate))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
 
-    // Find the target's index in the filtered list
-    let targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
+    // Remove the dragged todo from its original position
+    const withoutDragged = dayTodos.filter(t => t.id !== draggedTodoId);
+
+    // Find the target's new index in the list without the dragged item
+    let targetIndex = withoutDragged.findIndex(t => t.id === targetTodo.id);
     
-    // If dropping on the lower half, insert after the target
+    // Adjust index if dropping on the lower half
     const newIndex = isDroppingOnLowerHalf ? targetIndex + 1 : targetIndex;
 
     // Create a new todo object for the dragged item with the updated date
     const movedTodo = { ...draggedTodo, date: format(targetDate, "yyyy-MM-dd") };
 
     // Insert the dragged item at the new position
-    dayTodos.splice(newIndex, 0, movedTodo);
+    withoutDragged.splice(newIndex, 0, movedTodo);
+
+    const finalDayTodos = withoutDragged;
 
     // Re-assign order values based on the new array order
     const batch = writeBatch(firestore);
-    dayTodos.forEach((todo, index) => {
+    finalDayTodos.forEach((todo, index) => {
         const todoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
         const newOrder = (index + 1) * 10;
         
         // Update both order and date for the dragged todo
+        // or just the order for existing todos if it has changed
         if (todo.id === draggedTodoId) {
              batch.update(todoRef, { order: newOrder, date: format(targetDate, "yyyy-MM-dd") });
-        } else if (todo.order !== newOrder) { // Only update others if their order changes
+        } else if (todo.order !== newOrder) {
             batch.update(todoRef, { order: newOrder });
         }
     });
@@ -243,10 +258,10 @@ export function Calendar() {
 
 
   const handleExport = () => {
-    if (!user) return;
+    if (!user || !todos) return;
     startExportTransition(async () => {
       try {
-        const csvString = await exportTodosByYear(currentDate.getFullYear(), user.uid);
+        const csvString = await exportTodosByYear(currentDate.getFullYear(), todos);
         const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
@@ -261,6 +276,7 @@ export function Calendar() {
           description: `Todos for ${currentDate.getFullYear()} have been exported.`,
         });
       } catch (error) {
+        console.error("Export error:", error);
         toast({
           variant: "destructive",
           title: "Export Failed",
