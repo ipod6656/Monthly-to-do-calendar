@@ -181,37 +181,42 @@ export function Calendar() {
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
-    const targetDate = new Date(targetTodo.date);
-
-    if (!isSameDay(new Date(draggedTodo.date), targetDate)) {
-        handleDropOnDay(e, targetDate);
+    // Prevent reordering between different days with this handler
+    if (!isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))) {
+        handleDropOnDay(e, new Date(targetTodo.date));
         return;
     }
 
     let dayTodos = todos
-      .filter(t => isSameDay(new Date(t.date), targetDate))
+      .filter(t => isSameDay(new Date(t.date), new Date(targetTodo.date)))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
 
     const oldIndex = dayTodos.findIndex(t => t.id === draggedTodoId);
     if (oldIndex === -1) return; 
 
+    // Remove the dragged item from its original position
     const [itemToMove] = dayTodos.splice(oldIndex, 1);
   
     let targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
 
+    // Determine if dropping on the lower half of the target
     const rect = (e.target as HTMLElement).closest('[data-todo-id]')?.getBoundingClientRect();
     const isDroppingOnLowerHalf = rect && e.clientY > rect.top + rect.height / 2;
 
+    // If dropping on the lower half, insert after the target
     if (isDroppingOnLowerHalf) {
         targetIndex += 1;
     }
     
+    // Insert the dragged item at the new position
     dayTodos.splice(targetIndex, 0, itemToMove);
 
+    // Re-assign order values based on the new array order
     const batch = writeBatch(firestore);
     dayTodos.forEach((todo, index) => {
         const todoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
-        const newOrder = (index + 1) * 10; 
+        const newOrder = (index + 1) * 10; // Use increments of 10 for spacing
+        // Only update if the order has actually changed
         if (todo.order !== newOrder) {
             batch.update(todoRef, { order: newOrder });
         }
