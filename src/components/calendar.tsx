@@ -136,9 +136,9 @@ export function Calendar() {
     e.preventDefault(); // Necessary to allow dropping
   };
 
-  const handleDrop = (e: DragEvent<HTMLDivElement>, dropDate: Date, targetTodo?: Todo) => {
+  const handleDropOnDayCell = (e: DragEvent<HTMLDivElement>, dropDate: Date) => {
     e.preventDefault();
-    e.stopPropagation();
+    e.stopPropagation(); // Stop propagation to prevent parent handlers from firing
     if (!user || !firestore || !todos) return;
 
     const draggedTodoId = e.dataTransfer.getData('todoId');
@@ -147,9 +147,8 @@ export function Calendar() {
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
-    // Case 1: Dropping on an empty day cell (moving to a new date)
-    if (targetTodo === undefined) {
-      if (!isSameDay(new Date(draggedTodo.date), dropDate)) {
+    // This handler is only for moving to a new date cell
+    if (!isSameDay(new Date(draggedTodo.date), dropDate)) {
         const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
         updateDocumentNonBlocking(todoRef, {
             date: format(dropDate, "yyyy-MM-dd"),
@@ -159,30 +158,47 @@ export function Calendar() {
             title: "할 일이 이동되었습니다.",
             description: `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
         });
-      }
-      return;
-    }
-
-    // Case 2: Dropping on another todo item (reordering)
-    if (
-      draggedTodoId !== targetTodo.id &&
-      isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))
-    ) {
-      // Ensure both orders are valid numbers before swapping
-      if (typeof draggedTodo.order === 'number' && typeof targetTodo.order === 'number') {
-        const draggedRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
-        const targetRef = doc(firestore, 'users', user.uid, 'todos', targetTodo.id);
-        
-        // Swap orders by updating each document
-        updateDocumentNonBlocking(draggedRef, { order: targetTodo.order });
-        updateDocumentNonBlocking(targetRef, { order: draggedTodo.order });
-  
-      } else {
-         console.warn("Could not reorder todos because order value was missing on one of them.");
-      }
     }
   };
 
+  const handleDropOnTodoItem = (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => {
+    e.preventDefault();
+    e.stopPropagation(); // Stop propagation to prevent parent handlers from firing
+    if (!user || !firestore || !todos) return;
+    
+    const draggedTodoId = e.dataTransfer.getData('todoId');
+    if (!draggedTodoId || draggedTodoId === targetTodo.id) return;
+
+    const draggedTodo = todos.find(t => t.id === draggedTodoId);
+    if (!draggedTodo) return;
+
+    // This handler is only for reordering within the same day
+    if (isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))) {
+        // Ensure both orders are valid numbers before swapping
+        if (typeof draggedTodo.order === 'number' && typeof targetTodo.order === 'number') {
+            const draggedRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
+            const targetRef = doc(firestore, 'users', user.uid, 'todos', targetTodo.id);
+            
+            // Swap orders by updating each document
+            updateDocumentNonBlocking(draggedRef, { order: targetTodo.order, updatedAt: serverTimestamp() });
+            updateDocumentNonBlocking(targetRef, { order: draggedTodo.order, updatedAt: serverTimestamp() });
+        } else {
+            console.warn("Could not reorder todos because order value was missing on one of them.");
+        }
+    } else {
+        // If dropped on a todo in a different day, treat it as a date change
+        const dropDate = new Date(targetTodo.date);
+        const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
+        updateDocumentNonBlocking(todoRef, {
+            date: format(dropDate, "yyyy-MM-dd"),
+            updatedAt: serverTimestamp(),
+        });
+        toast({
+            title: "할 일이 이동되었습니다.",
+            description: `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
+        });
+    }
+  };
 
   const filteredTodos = useMemo(() => {
     if (!todos) return [];
@@ -351,7 +367,7 @@ export function Calendar() {
                 isToday && "bg-accent/50"
               )}
               onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, day)}
+              onDrop={(e) => handleDropOnDayCell(e, day)}
             >
               <CardContent className="p-2 flex-grow flex flex-col">
                 <div className="flex justify-between items-center">
@@ -386,7 +402,7 @@ export function Calendar() {
                       key={todo.id}
                       todo={todo}
                       onSelect={handleSelectTodo}
-                      onDrop={(e) => handleDrop(e, day, todo)}
+                      onDrop={(e) => handleDropOnTodoItem(e, todo)}
                       isToday={isToday}
                     />
                   ))}

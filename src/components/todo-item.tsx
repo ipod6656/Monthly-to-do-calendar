@@ -47,10 +47,23 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     e.dataTransfer.setData('todoId', todo.id);
     e.dataTransfer.setData('todoOrder', String(todo.order ?? ''));
+    // Stop propagation to prevent parent draggable elements from interfering
+    e.stopPropagation();
   };
   
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.stopPropagation(); // Prevent the drop event from bubbling up to the day cell
+    onDrop(e);
+  };
+  
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation(); // Prevent event bubbling
+    onSelect(todo);
   };
 
   return (
@@ -58,13 +71,13 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
       draggable
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
-      onDrop={onDrop}
+      onDrop={handleDrop}
       className={cn(
         "cursor-pointer transition-colors duration-200 hover:bg-accent/20",
         todo.completed && "bg-muted/60",
         isToday && !todo.completed && "bg-card/60"
       )}
-      onClick={() => onSelect(todo)}
+      onClick={handleClick}
     >
       <CardHeader className="p-2">
         <div className="flex items-center gap-2">
