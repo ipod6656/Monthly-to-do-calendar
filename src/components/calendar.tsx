@@ -139,10 +139,11 @@ export function Calendar() {
 
     const draggedTodoId = e.dataTransfer.getData('todoId');
     if (!draggedTodoId) return;
-
+    
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
+    // Only update if the date is different
     if (!isSameDay(new Date(draggedTodo.date), dropDate)) {
         const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
         updateDocumentNonBlocking(todoRef, {
@@ -156,6 +157,47 @@ export function Calendar() {
         });
     }
   };
+  
+  const handleDropOnTodo = (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user || !firestore || !todos) return;
+
+    const draggedTodoId = e.dataTransfer.getData('todoId');
+    const draggedTodo = todos.find(t => t.id === draggedTodoId);
+    
+    if (!draggedTodo || draggedTodo.id === targetTodo.id) return;
+    
+    // Reordering within the same day
+    if (isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))) {
+      const draggedTodoRef = doc(firestore, "users", user.uid, "todos", draggedTodo.id);
+      const targetTodoRef = doc(firestore, "users", user.uid, "todos", targetTodo.id);
+
+      // Swap the order values
+      const draggedOrder = draggedTodo.order;
+      const targetOrder = targetTodo.order;
+      
+      updateDocumentNonBlocking(draggedTodoRef, { order: targetOrder, updatedAt: serverTimestamp() });
+      updateDocumentNonBlocking(targetTodoRef, { order: draggedOrder, updatedAt: serverTimestamp() });
+
+    } else {
+      // Moving to a different day, handled by handleDropOnDay
+      // To make this work, we effectively call handleDropOnDay logic here
+      const dropDate = new Date(targetTodo.date);
+      const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
+        updateDocumentNonBlocking(todoRef, {
+            date: format(dropDate, "yyyy-MM-dd"),
+            order: Date.now(), // Place it at the end of the new day
+            updatedAt: serverTimestamp(),
+        });
+        toast({
+            title: "할 일이 이동되었습니다.",
+            description: `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
+        });
+    }
+  };
+
 
   const filteredTodos = useMemo(() => {
     if (!todos) return [];
@@ -359,6 +401,7 @@ export function Calendar() {
                       key={todo.id}
                       todo={todo}
                       onSelect={handleSelectTodo}
+                      onDrop={(e) => handleDropOnTodo(e, todo)}
                       isToday={isToday}
                     />
                   ))}
@@ -377,3 +420,5 @@ export function Calendar() {
     </div>
   );
 }
+
+    

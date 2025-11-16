@@ -3,27 +3,27 @@
 
 import type { Todo } from "@/lib/types";
 import { Card, CardHeader } from "@/components/ui/card";
-import { ImportanceIcon } from "./importance-icon";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useTransition, DragEvent, useState } from "react";
+import { useTransition, DragEvent } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser } from "@/firebase";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { doc, serverTimestamp } from "firebase/firestore";
+import { GripVertical } from "lucide-react";
 
 interface TodoItemProps {
   todo: Todo;
   onSelect: (todo: Todo) => void;
+  onDrop: (e: DragEvent<HTMLDivElement>) => void;
   isToday?: boolean;
 }
 
-export function TodoItem({ todo, onSelect, isToday }: TodoItemProps) {
+export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const { user } = useUser();
   const firestore = useFirestore();
-  const [mouseDownTime, setMouseDownTime] = useState(0);
 
   const handleCheckedChange = (checked: boolean) => {
     if (!user || !firestore) return;
@@ -49,23 +49,16 @@ export function TodoItem({ todo, onSelect, isToday }: TodoItemProps) {
     e.stopPropagation();
   };
   
-  const handleMouseDown = () => {
-    setMouseDownTime(Date.now());
-  };
-
-  const handleMouseUp = () => {
-    const timePressed = Date.now() - mouseDownTime;
-    if (timePressed < 200) { // If it's a quick click, not a drag
-      onSelect(todo);
-    }
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
   };
 
   return (
     <Card
-      draggable
-      onDragStart={handleDragStart}
-      onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
+      onDrop={onDrop}
+      onDragOver={handleDragOver}
+      onClick={() => onSelect(todo)}
       className={cn(
         "cursor-pointer transition-colors duration-200 hover:bg-accent/20",
         todo.completed && "bg-muted/60",
@@ -85,22 +78,27 @@ export function TodoItem({ todo, onSelect, isToday }: TodoItemProps) {
             disabled={isPending}
             className="flex-shrink-0"
           />
-          <div className="flex-grow flex items-start justify-between min-w-0">
-             <div
-              className={cn(
-                "text-sm font-normal whitespace-pre-wrap break-words",
-                todo.completed && "line-through text-muted-foreground",
-                todo.importance === "High" && !todo.completed && "text-red-500 font-bold"
-              )}
-            >
-              {todo.title}
-            </div>
-            <div className="flex-shrink-0 ml-2">
-              <ImportanceIcon importance={todo.importance} />
-            </div>
+          <div
+            className={cn(
+              "flex-grow text-sm font-normal whitespace-pre-wrap break-words",
+              todo.completed && "line-through text-muted-foreground",
+              todo.importance === "High" && !todo.completed && "text-red-500 font-bold"
+            )}
+          >
+            {todo.title}
+          </div>
+          <div 
+            draggable
+            onDragStart={handleDragStart}
+            onClick={(e) => e.stopPropagation()}
+            className="cursor-move p-1 text-muted-foreground hover:text-foreground"
+          >
+            <GripVertical className="h-5 w-5" />
           </div>
         </div>
       </CardHeader>
     </Card>
   );
 }
+
+    
