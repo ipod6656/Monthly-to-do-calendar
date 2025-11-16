@@ -22,13 +22,18 @@
         "completed": {
           "type": "boolean",
           "description": "Indicates whether the todo item has been completed."
+        },
+        "order": {
+          "type": "number",
+          "description": "The sort order of the todo item within a given day."
         }
       },
       "required": [
         "title",
         "date",
         "importance",
-        "completed"
+        "completed",
+        "order"
       ]
     }
   },

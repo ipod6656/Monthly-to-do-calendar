@@ -15,10 +15,11 @@ import { doc, serverTimestamp } from "firebase/firestore";
 interface TodoItemProps {
   todo: Todo;
   onSelect: (todo: Todo) => void;
+  onDrop: (e: DragEvent<HTMLDivElement>) => void;
   isToday?: boolean;
 }
 
-export function TodoItem({ todo, onSelect, isToday }: TodoItemProps) {
+export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const { user } = useUser();
@@ -45,13 +46,19 @@ export function TodoItem({ todo, onSelect, isToday }: TodoItemProps) {
   
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     e.dataTransfer.setData('todoId', todo.id);
+    e.dataTransfer.setData('todoOrder', String(todo.order));
   };
-
+  
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
 
   return (
     <Card
       draggable
       onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDrop={onDrop}
       className={cn(
         "cursor-pointer transition-colors duration-200 hover:bg-accent/20",
         todo.completed && "bg-muted/60",
@@ -91,5 +98,3 @@ export function TodoItem({ todo, onSelect, isToday }: TodoItemProps) {
     </Card>
   );
 }
-
-    

@@ -6,6 +6,7 @@ export interface Todo {
   title: string;
   importance: Importance;
   completed: boolean;
+  order: number;
 }
 
     

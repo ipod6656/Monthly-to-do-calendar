@@ -62,7 +62,7 @@ export function Calendar() {
   const [isDeleting, startDeleteTransition] = useTransition();
 
   const auth = useAuth();
-  const { user, isUserLoading } = useUser();
+  const { user } = useUser();
   const firestore = useFirestore();
 
   const todosRef = useMemoFirebase(() => {
@@ -136,22 +136,46 @@ export function Calendar() {
     e.preventDefault(); // Necessary to allow dropping
   };
 
-  const handleDrop = (e: DragEvent<HTMLDivElement>, dropDate: Date) => {
+  const handleDrop = (e: DragEvent<HTMLDivElement>, dropDate: Date, targetTodo?: Todo) => {
     e.preventDefault();
-    if (!user || !firestore) return;
-    const todoId = e.dataTransfer.getData('todoId');
-    if (!todoId) return;
+    e.stopPropagation();
+    if (!user || !firestore || !todos) return;
 
-    const todoRef = doc(firestore, 'users', user.uid, 'todos', todoId);
-    updateDocumentNonBlocking(todoRef, {
-        date: format(dropDate, "yyyy-MM-dd"),
-        updatedAt: serverTimestamp(),
-    });
+    const draggedTodoId = e.dataTransfer.getData('todoId');
+    const draggedTodoOrder = Number(e.dataTransfer.getData('todoOrder'));
+    if (!draggedTodoId) return;
 
-    toast({
-        title: "할 일이 이동되었습니다.",
-        description: `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
-    });
+    const draggedTodo = todos.find(t => t.id === draggedTodoId);
+    if (!draggedTodo) return;
+
+    // Case 1: Dropping on a different day
+    if (targetTodo === undefined) {
+      const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
+      updateDocumentNonBlocking(todoRef, {
+          date: format(dropDate, "yyyy-MM-dd"),
+          updatedAt: serverTimestamp(),
+      });
+      toast({
+          title: "할 일이 이동되었습니다.",
+          description: `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
+      });
+      return;
+    }
+
+    // Case 2: Reordering within the same day
+    if (draggedTodoId !== targetTodo.id && isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))) {
+      const draggedRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
+      const targetRef = doc(firestore, 'users', user.uid, 'todos', targetTodo.id);
+      
+      const batch = writeBatch(firestore);
+      batch.update(draggedRef, { order: targetTodo.order });
+      batch.update(targetRef, { order: draggedTodoOrder });
+
+      batch.commit().catch(err => {
+        console.error("Failed to reorder todos", err);
+        toast({ variant: 'destructive', title: '순서 변경에 실패했습니다.'});
+      });
+    }
   };
 
 
@@ -211,7 +235,7 @@ export function Calendar() {
     });
   };
 
-  if (isUserLoading || (user && todosLoading)) {
+  if (todosLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin" />
@@ -309,9 +333,9 @@ export function Calendar() {
       </div>
       <div className="flex-1 grid grid-cols-5 gap-2 overflow-y-auto">
         {calendarDays.map((day) => {
-          const todosForDay = filteredTodos.filter((todo) =>
-            isSameDay(new Date(todo.date), day)
-          );
+          const todosForDay = filteredTodos
+            .filter((todo) => isSameDay(new Date(todo.date), day))
+            .sort((a, b) => a.order - b.order);
           const isToday = isSameDay(day, new Date());
           return (
             <Card
@@ -357,6 +381,7 @@ export function Calendar() {
                       key={todo.id}
                       todo={todo}
                       onSelect={handleSelectTodo}
+                      onDrop={(e) => handleDrop(e, day, todo)}
                       isToday={isToday}
                     />
                   ))}

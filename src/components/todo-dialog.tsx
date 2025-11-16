@@ -56,6 +56,7 @@ const todoSchema = z.object({
   date: z.string().min(1, "날짜는 필수 항목입니다."),
   importance: z.enum(["High", "Medium", "Low"]),
   completed: z.boolean().default(false),
+  order: z.number().default(Date.now),
 });
 
 type TodoFormData = z.infer<typeof todoSchema>;
@@ -85,6 +86,7 @@ export function TodoDialog({
       date: "",
       importance: "Medium",
       completed: false,
+      order: Date.now(),
     },
   });
 
@@ -101,6 +103,7 @@ export function TodoDialog({
                 date: format(selectedDate, "yyyy-MM-dd"),
                 importance: "Medium",
                 completed: false,
+                order: Date.now(),
             });
         }
     }
@@ -246,7 +249,7 @@ export function TodoDialog({
                     </FormControl>
                     <div className="space-y-1 leading-none">
                       <FormLabel>
-                        완료로 표시
+                        완료으로 표시
                       </FormLabel>
                     </div>
                   </FormItem>
