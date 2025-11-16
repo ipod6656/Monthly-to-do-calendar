@@ -5,12 +5,12 @@ import type { Todo } from "@/lib/types";
 import { Card, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useTransition, DragEvent } from "react";
+import { useTransition, DragEvent, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser } from "@/firebase";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { doc, serverTimestamp } from "firebase/firestore";
-import { GripVertical } from "lucide-react";
+import { Grip } from "lucide-react";
 
 interface TodoItemProps {
   todo: Todo;
@@ -21,6 +21,7 @@ interface TodoItemProps {
 
 export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   const [isPending, startTransition] = useTransition();
+  const [isDraggable, setDraggable] = useState(false);
   const { toast } = useToast();
   const { user } = useUser();
   const firestore = useFirestore();
@@ -51,11 +52,12 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    e.stopPropagation();
   };
 
   return (
     <Card
+      draggable={isDraggable}
+      onDragStart={handleDragStart}
       onDrop={onDrop}
       onDragOver={handleDragOver}
       onClick={() => onSelect(todo)}
@@ -87,18 +89,17 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
           >
             {todo.title}
           </div>
-          <div 
-            draggable
-            onDragStart={handleDragStart}
+          <div
+            onMouseDown={() => setDraggable(true)}
+            onMouseUp={() => setDraggable(false)}
+            onMouseLeave={() => setDraggable(false)}
             onClick={(e) => e.stopPropagation()}
             className="cursor-move p-1 text-muted-foreground hover:text-foreground"
           >
-            <GripVertical className="h-5 w-5" />
+            <Grip className="h-5 w-5" />
           </div>
         </div>
       </CardHeader>
     </Card>
   );
 }
-
-    

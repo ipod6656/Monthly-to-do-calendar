@@ -161,41 +161,35 @@ export function Calendar() {
   const handleDropOnTodo = (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => {
     e.preventDefault();
     e.stopPropagation();
-
+  
     if (!user || !firestore || !todos) return;
-
+  
     const draggedTodoId = e.dataTransfer.getData('todoId');
+    if (!draggedTodoId || draggedTodoId === targetTodo.id) return;
+  
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
-    
-    if (!draggedTodo || draggedTodo.id === targetTodo.id) return;
-    
-    // Reordering within the same day
+    if (!draggedTodo) return;
+  
+    // --- Reordering logic ---
     if (isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))) {
-      const draggedTodoRef = doc(firestore, "users", user.uid, "todos", draggedTodo.id);
-      const targetTodoRef = doc(firestore, "users", user.uid, "todos", targetTodo.id);
-
-      // Assign a default order value (e.g., timestamp) if one is missing, then swap.
-      // This makes the operation safe for older data.
-      const draggedOrder = draggedTodo.order ?? new Date(draggedTodo.date).getTime();
-      const targetOrder = targetTodo.order ?? new Date(targetTodo.date).getTime();
-
-      // Swap the order values
-      updateDocumentNonBlocking(draggedTodoRef, { order: targetOrder, updatedAt: serverTimestamp() });
-      updateDocumentNonBlocking(targetTodoRef, { order: draggedOrder, updatedAt: serverTimestamp() });
-    } else {
-        // This case handles dropping a todo from a different day onto a todo item.
-        // We'll treat it as dropping on the target todo's day.
-        const dropDate = new Date(targetTodo.date);
-        const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
-        updateDocumentNonBlocking(todoRef, {
-            date: format(dropDate, "yyyy-MM-dd"),
-            order: Date.now(), // Place it at the end of the new day
-            updatedAt: serverTimestamp(),
-        });
-        toast({
-            title: "할 일이 이동되었습니다.",
-            description: `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
-        });
+      const dayTodos = todos
+        .filter(t => isSameDay(new Date(t.date), new Date(targetTodo.date)))
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+  
+      const targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
+  
+      if (targetIndex === -1) return;
+  
+      // Get the order value of the item before the target
+      // If dropping on the first item, the new order will be slightly less than the first item's order
+      const prevOrder = targetIndex > 0 ? dayTodos[targetIndex - 1].order : null;
+      const targetOrder = dayTodos[targetIndex].order;
+  
+      // Default to timestamps if order is missing
+      const newOrder = (prevOrder ?? (targetOrder ?? new Date(targetTodo.date).getTime()) - 2000) + 1000;
+  
+      const draggedTodoRef = doc(firestore, "users", user.uid, "todos", draggedTodoId);
+      updateDocumentNonBlocking(draggedTodoRef, { order: newOrder, updatedAt: serverTimestamp() });
     }
   };
 
