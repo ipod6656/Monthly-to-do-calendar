@@ -47,19 +47,25 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     e.dataTransfer.setData('todoId', todo.id);
     e.dataTransfer.setData('todoOrder', String(todo.order ?? ''));
+    // Stop propagation to prevent parent draggable elements from interfering
     e.stopPropagation();
   };
   
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    // This calls the parent's onDrop handler, passing the event and this todo item
     onDrop(e, todo);
   };
   
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    onSelect(todo);
+    // Only trigger select if not dragging
+    if (e.currentTarget.getAttribute('draggable') === 'true') {
+        onSelect(todo);
+    }
   };
 
   return (
@@ -68,12 +74,12 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onClick={handleClick}
       className={cn(
         "cursor-pointer transition-colors duration-200 hover:bg-accent/20",
         todo.completed && "bg-muted/60",
         isToday && !todo.completed && "bg-card/60"
       )}
-      onClick={handleClick}
     >
       <CardHeader className="p-2">
         <div className="flex items-center gap-2">
@@ -107,5 +113,3 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
     </Card>
   );
 }
-
-    

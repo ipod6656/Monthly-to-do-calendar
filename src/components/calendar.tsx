@@ -158,7 +158,7 @@ export function Calendar() {
 
   const handleDropOnTodoItem = (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => {
     e.preventDefault();
-    e.stopPropagation();
+    e.stopPropagation(); // Prevent handleDropOnDay from being called
     if (!user || !firestore || !todos) return;
     
     const draggedTodoId = e.dataTransfer.getData('todoId');
