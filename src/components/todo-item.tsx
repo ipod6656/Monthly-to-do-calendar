@@ -15,14 +15,16 @@ import { Grip } from "lucide-react";
 interface TodoItemProps {
   todo: Todo;
   onSelect: (todo: Todo) => void;
-  onDropOnTodo: (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => void;
+  onDrop: (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => void;
   isToday?: boolean;
 }
 
-export function TodoItem({ todo, onSelect, onDropOnTodo, isToday }: TodoItemProps) {
+type DropPosition = 'top' | 'bottom' | null;
+
+export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   const [isPending, startTransition] = useTransition();
   const [isDraggable, setDraggable] = useState(false);
-  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [dropPosition, setDropPosition] = useState<DropPosition>(null);
   const { toast } = useToast();
   const { user } = useUser();
   const firestore = useFirestore();
@@ -54,25 +56,36 @@ export function TodoItem({ todo, onSelect, onDropOnTodo, isToday }: TodoItemProp
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-  };
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseY = e.clientY;
+    const midY = rect.top + rect.height / 2;
 
-  const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingOver(true);
+    if (mouseY < midY) {
+      setDropPosition('top');
+    } else {
+      setDropPosition('bottom');
+    }
   };
   
   const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDraggingOver(false);
+    setDropPosition(null);
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDraggingOver(false);
-    onDropOnTodo(e, todo);
+    setDropPosition(null);
+    onDrop(e, todo);
+  };
+
+  const handleClick = () => {
+    // Only select if not dragging
+    if (!isDraggable) {
+      onSelect(todo);
+    }
   };
 
 
@@ -82,17 +95,19 @@ export function TodoItem({ todo, onSelect, onDropOnTodo, isToday }: TodoItemProp
       onDragStart={handleDragStart}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
-      onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
-      onClick={() => onSelect(todo)}
+      onClick={handleClick}
       className={cn(
         "cursor-pointer transition-colors duration-200 hover:bg-accent/20 relative",
         todo.completed && "bg-muted/60",
         isToday && !todo.completed && "bg-card/60"
       )}
     >
-      {isDraggingOver && (
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-blue-500 z-10" />
+      {dropPosition === 'top' && (
+          <div className="absolute top-0 left-0 right-0 h-[3px] bg-blue-500 z-10 rounded-full" />
+      )}
+      {dropPosition === 'bottom' && (
+          <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-blue-500 z-10 rounded-full" />
       )}
       <CardHeader className="p-2">
         <div className="flex items-center gap-2">
@@ -119,7 +134,7 @@ export function TodoItem({ todo, onSelect, onDropOnTodo, isToday }: TodoItemProp
           <div
             onMouseDown={() => setDraggable(true)}
             onMouseUp={() => setDraggable(false)}
-            onMouseLeave={() => setDraggable(false)}
+            onMouseLeave={() => { if (isDraggable) setDraggable(false); }}
             onClick={(e) => e.stopPropagation()}
             className="cursor-move p-1 text-muted-foreground hover:text-foreground"
           >
@@ -130,3 +145,4 @@ export function TodoItem({ todo, onSelect, onDropOnTodo, isToday }: TodoItemProp
     </Card>
   );
 }
+
