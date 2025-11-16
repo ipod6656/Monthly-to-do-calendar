@@ -171,6 +171,18 @@ export function Calendar() {
     
     // Reordering within the same day
     if (isSameDay(new Date(draggedTodo.date), new Date(targetTodo.date))) {
+      
+      // Defensive check to ensure both todos have an 'order' property
+      if (typeof draggedTodo.order !== 'number' || typeof targetTodo.order !== 'number') {
+        console.error("Cannot reorder: One or both todos are missing an 'order' value.");
+        toast({
+          variant: "destructive",
+          title: "순서 변경 실패",
+          description: "데이터에 순서 값이 없어 순서를 변경할 수 없습니다. 할 일을 다시 생성해보세요.",
+        });
+        return;
+      }
+      
       const draggedTodoRef = doc(firestore, "users", user.uid, "todos", draggedTodo.id);
       const targetTodoRef = doc(firestore, "users", user.uid, "todos", targetTodo.id);
 
@@ -182,10 +194,10 @@ export function Calendar() {
       updateDocumentNonBlocking(targetTodoRef, { order: draggedOrder, updatedAt: serverTimestamp() });
 
     } else {
-      // Moving to a different day, handled by handleDropOnDay
-      // To make this work, we effectively call handleDropOnDay logic here
-      const dropDate = new Date(targetTodo.date);
-      const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
+        // This case handles dropping a todo from a different day onto a todo item.
+        // We'll treat it as dropping on the target todo's day.
+        const dropDate = new Date(targetTodo.date);
+        const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
         updateDocumentNonBlocking(todoRef, {
             date: format(dropDate, "yyyy-MM-dd"),
             order: Date.now(), // Place it at the end of the new day
@@ -420,5 +432,3 @@ export function Calendar() {
     </div>
   );
 }
-
-    
