@@ -138,58 +138,7 @@ export function Calendar() {
     e.preventDefault();
   };
   
-  const handleDropOnDay = (e: DragEvent<HTMLDivElement>, dropDate: Date) => {
-    e.preventDefault();
-    if (!user || !firestore || !todos) return;
-
-    const draggedTodoId = e.dataTransfer.getData('todoId');
-    if (!draggedTodoId) return;
-    
-    const draggedTodo = todos.find(t => t.id === draggedTodoId);
-    if (!draggedTodo) return;
-
-    const newDateStr = format(dropDate, 'yyyy-MM-dd');
-
-    // Get todos for the target day, excluding the one being dragged
-    const targetDayTodos = todos.filter(t => t.date === newDateStr && t.id !== draggedTodoId);
-    
-    // Calculate new order to be the last one.
-    const newOrder = (targetDayTodos.length > 0) 
-      ? Math.max(...targetDayTodos.map(t => t.order)) + 10 
-      : Date.now();
-
-    const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
-
-    const batch = writeBatch(firestore)
-    batch.update(todoRef, { date: newDateStr, order: newOrder });
-
-    // If moving from a different day, re-order the source day
-    const oldDateStr = draggedTodo.date;
-    if (oldDateStr !== newDateStr) {
-        const sourceDayTodos = todos
-            .filter(t => t.date === oldDateStr && t.id !== draggedTodoId)
-            .sort((a, b) => (a.order || 0) - (b.order || 0));
-
-        sourceDayTodos.forEach((todo, index) => {
-            const sourceTodoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
-            const newSourceOrder = (index + 1) * 10;
-            if (todo.order !== newSourceOrder) {
-                batch.update(sourceTodoRef, { order: newSourceOrder });
-            }
-        });
-    }
-    
-    batch.commit().catch(err => {
-        console.error("Drop on day batch commit failed", err);
-        toast({
-          variant: "destructive",
-          title: "이동 실패",
-          description: "데이터베이스 오류가 발생했습니다."
-        });
-      });
-  };
-
-  const handleDropOnTodo = (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => {
+ const handleDropOnTodo = (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -202,15 +151,18 @@ export function Calendar() {
     if (!draggedTodo) return;
     
     const targetDateStr = targetTodo.date;
+    const originalDateStr = draggedTodo.date;
 
-    const dayTodosUnsorted = todos.filter(t => t.date === targetDateStr && t.id !== draggedTodoId);
+    const allTodosForTargetDayUnsorted = todos.filter(t => 
+      t.date === targetDateStr && t.id !== draggedTodoId
+    );
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const isDroppingOnLowerHalf = e.clientY > rect.top + rect.height / 2;
 
-    const dayTodos = dayTodosUnsorted.sort((a, b) => (a.order || 0) - (b.order || 0));
+    const allTodosForTargetDaySorted = allTodosForTargetDayUnsorted.sort((a, b) => (a.order || 0) - (b.order || 0));
     
-    const targetIndexInDay = dayTodos.findIndex(t => t.id === targetTodo.id);
+    const targetIndexInDay = allTodosForTargetDaySorted.findIndex(t => t.id === targetTodo.id);
 
     let newIndex;
     if (isDroppingOnLowerHalf) {
@@ -218,8 +170,8 @@ export function Calendar() {
     } else {
         newIndex = targetIndexInDay;
     }
-    
-    const newDayTodos = [...dayTodos];
+
+    const newDayTodos = [...allTodosForTargetDaySorted];
     newDayTodos.splice(newIndex, 0, { ...draggedTodo, date: targetDateStr } as Todo);
 
     const batch = writeBatch(firestore);
@@ -227,16 +179,14 @@ export function Calendar() {
     newDayTodos.forEach((todo, index) => {
       const todoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
       const newOrder = (index + 1) * 10;
-      // Also update date in case it's a cross-day drop
       if (todo.order !== newOrder || todo.date !== targetDateStr) {
         batch.update(todoRef, { order: newOrder, date: targetDateStr });
       }
     });
 
-    // If it was a cross-day drop, we also need to re-order the source day
-    if (draggedTodo.date !== targetDateStr) {
+    if (originalDateStr !== targetDateStr) {
       const sourceDayTodos = todos
-        .filter(t => t.date === draggedTodo.date && t.id !== draggedTodoId)
+        .filter(t => t.date === originalDateStr && t.id !== draggedTodoId)
         .sort((a, b) => (a.order || 0) - (b.order || 0));
 
       sourceDayTodos.forEach((todo, index) => {
@@ -247,17 +197,65 @@ export function Calendar() {
         }
       });
     }
-
+    
     batch.commit().catch(err => {
-      console.error("Reorder batch commit failed", err);
-      toast({
-        variant: "destructive",
-        title: "순서 변경 실패",
-        description: "데이터베이스 오류가 발생했습니다. 다시 시도해주세요."
+        console.error("Drop on todo batch commit failed", err);
+        toast({
+          variant: "destructive",
+          title: "순서 변경 실패",
+          description: "데이터베이스 오류가 발생했습니다."
+        });
       });
-    });
   };
 
+  const handleDropOnDay = (e: DragEvent<HTMLDivElement>, dropDate: Date) => {
+    e.preventDefault();
+    if (!user || !firestore || !todos) return;
+
+    const draggedTodoId = e.dataTransfer.getData('todoId');
+    if (!draggedTodoId) return;
+    
+    const draggedTodo = todos.find(t => t.id === draggedTodoId);
+    if (!draggedTodo) return;
+
+    const newDateStr = format(dropDate, 'yyyy-MM-dd');
+    const oldDateStr = draggedTodo.date;
+
+    if (newDateStr === oldDateStr) return; // Dropping on same day empty space, no reorder needed for this handler
+
+    const targetDayTodos = todos.filter(t => t.date === newDateStr);
+    
+    const newOrder = (targetDayTodos.length > 0) 
+      ? Math.max(...targetDayTodos.map(t => t.order)) + 10 
+      : Date.now();
+
+    const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
+
+    const batch = writeBatch(firestore)
+    batch.update(todoRef, { date: newDateStr, order: newOrder });
+
+    // Re-order the source day
+    const sourceDayTodos = todos
+        .filter(t => t.date === oldDateStr && t.id !== draggedTodoId)
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    sourceDayTodos.forEach((todo, index) => {
+        const sourceTodoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
+        const newSourceOrder = (index + 1) * 10;
+        if (todo.order !== newSourceOrder) {
+            batch.update(sourceTodoRef, { order: newSourceOrder });
+        }
+    });
+    
+    batch.commit().catch(err => {
+        console.error("Drop on day batch commit failed", err);
+        toast({
+          variant: "destructive",
+          title: "이동 실패",
+          description: "데이터베이스 오류가 발생했습니다."
+        });
+      });
+  };
 
   const filteredTodos = useMemo(() => {
     if (!todos) return [];
@@ -490,17 +488,18 @@ export function Calendar() {
         
         {/* Mobile View: Collapsible Calendar + Agenda */}
         <div className="md:hidden flex flex-col flex-1 min-h-0">
+          <div className="grid grid-cols-7 text-center text-xs text-muted-foreground mb-2">
+            {mobileWeekdays.map((day, index) => <div key={`${day}-${index}`}>{day}</div>)}
+          </div>
+          
           <Collapsible open={!isCalendarCollapsed} onOpenChange={(open) => setCalendarCollapsed(!open)} className="flex flex-col">
-            <div className="grid grid-cols-7 text-center text-xs text-muted-foreground mb-2">
-              {mobileWeekdays.map((day, index) => <div key={`${day}-${index}`}>{day}</div>)}
-            </div>
             
+            {/* This is the part that was wrong. Now the week view is OUTSIDE the collapsible content */}
+            {isCalendarCollapsed && <MobileCalendarGrid days={weekDays} />}
+
             <CollapsibleContent>
-              {isCalendarCollapsed ? (
-                <MobileCalendarGrid days={weekDays} />
-              ) : (
-                <MobileCalendarGrid days={calendarDays} />
-              )}
+              {/* The full month view is INSIDE the collapsible content */}
+              {!isCalendarCollapsed && <MobileCalendarGrid days={calendarDays} />}
             </CollapsibleContent>
 
             <div className="flex justify-between items-center px-1 sticky top-0 bg-background/80 backdrop-blur-sm z-10 py-2 -mt-2">
