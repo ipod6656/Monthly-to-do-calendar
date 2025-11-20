@@ -144,25 +144,33 @@ export function Calendar() {
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
-    const isSameDayDrop = isSameDay(new Date(draggedTodo.date), dropDate);
+    const newDateStr = format(dropDate, 'yyyy-MM-dd');
+    const isSameDayDrop = draggedTodo.date === newDateStr;
+
+    // Get todos for the target day, excluding the one being dragged
+    const targetDayTodos = todos.filter(t => t.date === newDateStr && t.id !== draggedTodoId);
     
-    if (isSameDayDrop) {
-      // Reordering within the same day by dropping on an empty space
-      const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
-      const batch = writeBatch(firestore);
-      batch.update(todoRef, { order: Date.now() });
-      batch.commit().catch(err => console.error("Batch commit failed", err));
-    } else {
-      // Moving to the end of a new day
-      const targetDayTodos = todos.filter(t => isSameDay(new Date(t.date), dropDate));
-      const newOrder = (targetDayTodos.length + 1) * 10;
-      const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
-      const batch = writeBatch(firestore);
-      batch.update(todoRef, { date: format(dropDate, 'yyyy-MM-dd'), order: newOrder });
-      batch.commit().catch(err => console.error("Batch commit failed", err));
-    }
-  };
-  
+    // Calculate new order to be the last one. Using timestamps for simplicity.
+    const newOrder = (targetDayTodos.length > 0) 
+      ? Math.max(...targetDayTodos.map(t => t.order)) + 10 
+      : Date.now();
+
+    const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
+    const batch = writeBatch(firestore);
+
+    // If moving to a new day, or reordering to the end of the same day
+    batch.update(todoRef, { date: newDateStr, order: newOrder });
+
+    batch.commit().catch(err => {
+      console.error("Drop on day batch commit failed", err);
+      toast({
+        variant: "destructive",
+        title: "이동 실패",
+        description: "데이터베이스 오류가 발생했습니다."
+      });
+    });
+};
+
   const handleDropOnTodo = (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => {
     e.preventDefault();
     e.stopPropagation();
@@ -175,33 +183,47 @@ export function Calendar() {
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
-    const targetDate = new Date(targetTodo.date);
+    const targetDateStr = targetTodo.date;
+    
+    // Determine the list of todos for the target day
+    let dayTodos = todos
+      .filter(t => t.date === targetDateStr)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    // If dragging from another day, the draggedTodo is not in this list yet
+    if (draggedTodo.date !== targetDateStr) {
+      dayTodos = dayTodos.filter(t => t.id !== draggedTodoId); // Ensure it's not there
+    }
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const isDroppingOnLowerHalf = e.clientY > rect.top + rect.height / 2;
 
-    let dayTodos = todos
-      .filter(t => isSameDay(new Date(t.date), targetDate))
-      .filter(t => t.id !== draggedTodoId) // Exclude the dragged todo for now
-      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    const originalIndex = dayTodos.findIndex(t => t.id === draggedTodoId);
+    const targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
 
-    let targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
-
+    // Remove the dragged todo from its original position within the day
+    if (originalIndex > -1) {
+      dayTodos.splice(originalIndex, 1);
+    }
+    
+    // Calculate the new index for insertion
+    let newIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
     if (isDroppingOnLowerHalf) {
-      targetIndex++;
+      newIndex++;
     }
 
     // Insert the dragged todo at the new position
-    dayTodos.splice(targetIndex, 0, { ...draggedTodo, date: format(targetDate, 'yyyy-MM-dd') });
-    
+    dayTodos.splice(newIndex, 0, { ...draggedTodo, date: targetDateStr });
+
     const batch = writeBatch(firestore);
 
+    // Re-assign order to all todos in the updated list
     dayTodos.forEach((todo, index) => {
       const todoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
       const newOrder = (index + 1) * 10;
       // Only update if the order or date has changed
-      if (todo.order !== newOrder || !isSameDay(new Date(todo.date), targetDate)) {
-        batch.update(todoRef, { order: newOrder, date: format(targetDate, 'yyyy-MM-dd') });
+      if (todo.order !== newOrder || todo.date !== targetDateStr) {
+        batch.update(todoRef, { order: newOrder, date: targetDateStr });
       }
     });
 
@@ -214,6 +236,7 @@ export function Calendar() {
       });
     });
 };
+
 
   const filteredTodos = useMemo(() => {
     if (!todos) return [];
@@ -322,13 +345,13 @@ export function Calendar() {
               Today
             </Button>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
                 type="search"
                 placeholder="Search todos..."
-                className="pl-10 w-full sm:w-auto"
+                className="pl-10 w-full"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -341,12 +364,12 @@ export function Calendar() {
               )}
               Export Year
             </Button>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
                <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button onClick={handleLogout} variant="outline" size="icon" className="md:w-auto md:px-4">
+                  <Button onClick={handleLogout} variant="outline" size="icon">
                     <LogOut className="h-4 w-4" />
-                    <span className="hidden md:inline ml-2">로그아웃</span>
+                    <span className="sr-only">로그아웃</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -357,9 +380,9 @@ export function Calendar() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="icon" className="md:w-auto md:px-4" disabled={isDeleting}>
+                      <Button variant="destructive" size="icon" disabled={isDeleting}>
                         <Trash2 className="h-4 w-4" />
-                         <span className="hidden md:inline ml-2">회원 탈퇴</span>
+                         <span className="sr-only">회원 탈퇴</span>
                       </Button>
                     </AlertDialogTrigger>
                   </TooltipTrigger>
@@ -545,3 +568,5 @@ export function Calendar() {
     </TooltipProvider>
   );
 }
+
+    
