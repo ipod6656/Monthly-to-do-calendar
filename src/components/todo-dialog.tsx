@@ -256,7 +256,10 @@ export function TodoDialog({
                 )}
               />
             )}
-            <DialogFooter className="sm:justify-between pt-4">
+            <DialogFooter className="pt-4 grid gap-2">
+              <Button type="submit" disabled={isPending} className={!todo ? "w-full" : ""}>
+                {isPending ? "저장 중..." : (todo ? "변경 내용 저장" : "할 일 만들기")}
+              </Button>
               {todo && (
                  <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -283,9 +286,6 @@ export function TodoDialog({
                   </AlertDialogContent>
                 </AlertDialog>
               )}
-              <Button type="submit" disabled={isPending} className={!todo ? "w-full" : ""}>
-                {isPending ? "저장 중..." : (todo ? "변경 내용 저장" : "할 일 만들기")}
-              </Button>
             </DialogFooter>
           </form>
         </Form>
