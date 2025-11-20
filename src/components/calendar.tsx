@@ -187,29 +187,24 @@ export function Calendar() {
     
     const targetDateStr = targetTodo.date;
     
-    let dayTodos = todos
-      .filter(t => t.date === targetDateStr)
+    const dayTodos = todos
+      .filter(t => t.date === targetDateStr && t.id !== draggedTodoId)
       .sort((a, b) => (a.order || 0) - (b.order || 0));
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const isDroppingOnLowerHalf = e.clientY > rect.top + rect.height / 2;
 
-    const draggedItemInDay = dayTodos.find(t => t.id === draggedTodoId);
-    
-    if (draggedItemInDay) {
-        dayTodos = dayTodos.filter(t => t.id !== draggedTodoId);
-    }
-    
     let targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
     if (isDroppingOnLowerHalf) {
         targetIndex++;
     }
 
-    dayTodos.splice(targetIndex, 0, { ...draggedTodo, date: targetDateStr });
+    const newDayTodos = [...dayTodos];
+    newDayTodos.splice(targetIndex, 0, { ...draggedTodo, date: targetDateStr });
 
     const batch = writeBatch(firestore);
 
-    dayTodos.forEach((todo, index) => {
+    newDayTodos.forEach((todo, index) => {
       const todoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
       const newOrder = (index + 1) * 10;
       if (todo.order !== newOrder || todo.date !== targetDateStr) {
@@ -459,38 +454,40 @@ export function Calendar() {
         
         {/* Mobile View: Collapsible Calendar + Agenda */}
         <div className="md:hidden flex flex-col flex-1 min-h-0">
-          <Collapsible open={!isCalendarCollapsed} onOpenChange={(open) => setCalendarCollapsed(!open)}>
+          <Collapsible open={!isCalendarCollapsed} onOpenChange={(open) => setCalendarCollapsed(!open)} className="flex flex-col">
             <div className="grid grid-cols-7 text-center text-xs text-muted-foreground mb-2">
               {mobileWeekdays.map((day, index) => <div key={`${day}-${index}`}>{day}</div>)}
             </div>
-            <CollapsibleContent className="transition-all data-[state=closed]:-mt-2">
+            
+            <CollapsibleContent className="transition-all data-[state=closed]:-mt-2 data-[state=open]:flex-shrink-0">
               <MobileCalendarGrid days={calendarDays} />
             </CollapsibleContent>
-            <CollapsibleContent className="data-[state=open]:hidden">
-              <MobileCalendarGrid days={weekDays} />
+            
+            <CollapsibleContent className="data-[state=open]:hidden data-[state=closed]:flex-shrink-0">
+               <MobileCalendarGrid days={weekDays} />
             </CollapsibleContent>
-          </Collapsible>
-          
-          <div className="flex-1 overflow-y-auto mt-2 space-y-2 pr-2">
-              <div className="flex justify-between items-center px-1 sticky top-0 bg-background/80 backdrop-blur-sm z-10 py-2 -mt-2">
-                <div className="flex items-center gap-2">
-                   <h2 className="font-bold text-lg">{format(agendaDate, "MMMM d")}</h2>
-                   <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        {isCalendarCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                        <span className="sr-only">Toggle calendar</span>
-                      </Button>
-                   </CollapsibleTrigger>
-                </div>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => handleOpenNewTodoDialog(agendaDate)}
-                  >
-                    <Plus className="h-5 w-5" />
-                  </Button>
-              </div>
+
+            <div className="flex justify-between items-center px-1 sticky top-0 bg-background/80 backdrop-blur-sm z-10 py-2 -mt-2">
+              <CollapsibleTrigger asChild>
+                  <div className="flex items-center gap-2 cursor-pointer">
+                    <h2 className="font-bold text-lg">{format(agendaDate, "MMMM d")}</h2>
+                    <Button variant="ghost" size="icon" className="h-6 w-6">
+                      {isCalendarCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                      <span className="sr-only">Toggle calendar</span>
+                    </Button>
+                  </div>
+              </CollapsibleTrigger>
+              <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleOpenNewTodoDialog(agendaDate)}
+                >
+                  <Plus className="h-5 w-5" />
+                </Button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto mt-2 space-y-2 pr-2">
               <div className="pt-2">
                 {todosForAgenda.length > 0 ? (
                     todosForAgenda.map(todo => (
@@ -508,8 +505,10 @@ export function Calendar() {
                     </div>
                 )}
               </div>
-          </div>
+            </div>
+          </Collapsible>
         </div>
+
 
         {/* Desktop View: Full Grid Calendar */}
         <div className="hidden md:flex flex-col flex-1">
@@ -596,3 +595,4 @@ export function Calendar() {
     </TooltipProvider>
   );
 }
+
