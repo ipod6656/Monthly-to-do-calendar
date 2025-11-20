@@ -347,7 +347,7 @@ export function Calendar() {
           <div
             key={day.toString()}
             className={cn(
-              "flex flex-col items-center justify-start h-12 transition-opacity",
+              "flex flex-col items-center justify-start pb-2 transition-opacity",
               !isCurrentMonth && "opacity-50"
             )}
             onClick={() => {
@@ -494,15 +494,13 @@ export function Calendar() {
           
           <Collapsible open={!isCalendarCollapsed} onOpenChange={(open) => setCalendarCollapsed(!open)} className="flex flex-col">
             
-            {/* This is the part that was wrong. Now the week view is OUTSIDE the collapsible content */}
             {isCalendarCollapsed && <MobileCalendarGrid days={weekDays} />}
 
             <CollapsibleContent>
-              {/* The full month view is INSIDE the collapsible content */}
               {!isCalendarCollapsed && <MobileCalendarGrid days={calendarDays} />}
             </CollapsibleContent>
 
-            <div className="flex justify-between items-center px-1 sticky top-0 bg-background/80 backdrop-blur-sm z-10 py-2 -mt-2">
+            <div className="flex justify-between items-center pl-1 pr-2 sticky top-0 bg-background/80 backdrop-blur-sm z-10 py-2 -mt-2">
               <CollapsibleTrigger asChild>
                   <div className="flex items-center gap-2 cursor-pointer">
                     <h2 className="font-bold text-lg">{format(agendaDate, "MMMM d")}</h2>
