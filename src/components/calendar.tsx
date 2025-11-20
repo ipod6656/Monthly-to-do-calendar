@@ -37,7 +37,7 @@ import { cn } from "@/lib/utils";
 import { exportTodosByYear } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, query, getDocs, writeBatch, doc } from "firebase/firestore";
+import { collection, query, getDocs, writeBatch, doc, serverTimestamp, updateDoc, addDoc, deleteDoc } from "firebase/firestore";
 import { Badge } from "@/components/ui/badge";
 import { deleteUser } from "firebase/auth";
 import {
@@ -160,10 +160,26 @@ export function Calendar() {
 
     const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
 
-    writeBatch(firestore)
-      .update(todoRef, { date: newDateStr, order: newOrder })
-      .commit()
-      .catch(err => {
+    const batch = writeBatch(firestore)
+    batch.update(todoRef, { date: newDateStr, order: newOrder });
+
+    // If moving from a different day, re-order the source day
+    const oldDateStr = draggedTodo.date;
+    if (oldDateStr !== newDateStr) {
+        const sourceDayTodos = todos
+            .filter(t => t.date === oldDateStr && t.id !== draggedTodoId)
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        sourceDayTodos.forEach((todo, index) => {
+            const sourceTodoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
+            const newSourceOrder = (index + 1) * 10;
+            if (todo.order !== newSourceOrder) {
+                batch.update(sourceTodoRef, { order: newSourceOrder });
+            }
+        });
+    }
+    
+    batch.commit().catch(err => {
         console.error("Drop on day batch commit failed", err);
         toast({
           variant: "destructive",
@@ -186,31 +202,51 @@ export function Calendar() {
     if (!draggedTodo) return;
     
     const targetDateStr = targetTodo.date;
-    
-    const dayTodos = todos
-      .filter(t => t.date === targetDateStr && t.id !== draggedTodoId)
-      .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    const dayTodosUnsorted = todos.filter(t => t.date === targetDateStr && t.id !== draggedTodoId);
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const isDroppingOnLowerHalf = e.clientY > rect.top + rect.height / 2;
 
-    let targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
-    if (isDroppingOnLowerHalf) {
-        targetIndex++;
-    }
+    const dayTodos = dayTodosUnsorted.sort((a, b) => (a.order || 0) - (b.order || 0));
+    
+    const targetIndexInDay = dayTodos.findIndex(t => t.id === targetTodo.id);
 
+    let newIndex;
+    if (isDroppingOnLowerHalf) {
+        newIndex = targetIndexInDay + 1;
+    } else {
+        newIndex = targetIndexInDay;
+    }
+    
     const newDayTodos = [...dayTodos];
-    newDayTodos.splice(targetIndex, 0, { ...draggedTodo, date: targetDateStr });
+    newDayTodos.splice(newIndex, 0, { ...draggedTodo, date: targetDateStr } as Todo);
 
     const batch = writeBatch(firestore);
 
     newDayTodos.forEach((todo, index) => {
       const todoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
       const newOrder = (index + 1) * 10;
+      // Also update date in case it's a cross-day drop
       if (todo.order !== newOrder || todo.date !== targetDateStr) {
         batch.update(todoRef, { order: newOrder, date: targetDateStr });
       }
     });
+
+    // If it was a cross-day drop, we also need to re-order the source day
+    if (draggedTodo.date !== targetDateStr) {
+      const sourceDayTodos = todos
+        .filter(t => t.date === draggedTodo.date && t.id !== draggedTodoId)
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+      sourceDayTodos.forEach((todo, index) => {
+        const sourceTodoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
+        const newSourceOrder = (index + 1) * 10;
+        if (todo.order !== newSourceOrder) {
+            batch.update(sourceTodoRef, { order: newSourceOrder });
+        }
+      });
+    }
 
     batch.commit().catch(err => {
       console.error("Reorder batch commit failed", err);
@@ -220,7 +256,7 @@ export function Calendar() {
         description: "데이터베이스 오류가 발생했습니다. 다시 시도해주세요."
       });
     });
-};
+  };
 
 
   const filteredTodos = useMemo(() => {
@@ -459,12 +495,12 @@ export function Calendar() {
               {mobileWeekdays.map((day, index) => <div key={`${day}-${index}`}>{day}</div>)}
             </div>
             
-            <CollapsibleContent className="transition-all data-[state=closed]:-mt-2 data-[state=open]:flex-shrink-0">
-              <MobileCalendarGrid days={calendarDays} />
-            </CollapsibleContent>
-            
-            <CollapsibleContent className="data-[state=open]:hidden data-[state=closed]:flex-shrink-0">
-               <MobileCalendarGrid days={weekDays} />
+            <CollapsibleContent>
+              {isCalendarCollapsed ? (
+                <MobileCalendarGrid days={weekDays} />
+              ) : (
+                <MobileCalendarGrid days={calendarDays} />
+              )}
             </CollapsibleContent>
 
             <div className="flex justify-between items-center px-1 sticky top-0 bg-background/80 backdrop-blur-sm z-10 py-2 -mt-2">
@@ -596,3 +632,6 @@ export function Calendar() {
   );
 }
 
+
+
+    
