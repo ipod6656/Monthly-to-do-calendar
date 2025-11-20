@@ -145,15 +145,13 @@ export function Calendar() {
 
     const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
     
-    // If dropping on a new day or onto an empty area of the same day
     const isNewDay = !isSameDay(new Date(draggedTodo.date), dropDate);
 
-    // Get todos for the target day
-    const targetDayTodos = todos
-        .filter(t => isSameDay(new Date(t.date), dropDate) && t.id !== draggedTodoId)
-        .sort((a, b) => (a.order || 0) - (b.order || 0));
-
     if (isNewDay) {
+        const targetDayTodos = todos
+            .filter(t => isSameDay(new Date(t.date), dropDate))
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+
         const reorderedTodos = [...targetDayTodos, { ...draggedTodo, date: format(dropDate, 'yyyy-MM-dd')}];
         const batch = writeBatch(firestore);
         reorderedTodos.forEach((todo, index) => {
@@ -163,7 +161,7 @@ export function Calendar() {
         batch.commit().catch(err => console.error("Batch commit failed", err));
     } else { // Dropping in empty space on the same day (move to last)
          const batch = writeBatch(firestore);
-         batch.update(todoRef, { order: Date.now() });
+         batch.update(todoRef, { order: Date.now(), date: format(dropDate, 'yyyy-MM-dd') });
          batch.commit().catch(err => console.error("Batch commit failed", err));
     }
   };
@@ -179,20 +177,29 @@ export function Calendar() {
 
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
-    
-    const targetDate = new Date(targetTodo.date);
 
-    let dayTodos = todos.filter(t => isSameDay(new Date(t.date), targetDate) && t.id !== draggedTodoId);
+    const targetDate = new Date(targetTodo.date);
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const isDroppingOnLowerHalf = e.clientY > rect.top + rect.height / 2;
 
-    let targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
+    let dayTodos = todos
+        .filter(t => isSameDay(new Date(t.date), targetDate))
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+        
+    const originalIndexOfDragged = dayTodos.findIndex(t => t.id === draggedTodoId);
+    if (originalIndexOfDragged !== -1) {
+        // This is a reorder within the same day, remove it first
+        dayTodos.splice(originalIndexOfDragged, 1);
+    }
     
+    let targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
+
     if (isDroppingOnLowerHalf) {
         targetIndex++;
     }
 
+    // Insert the dragged todo at the new position
     dayTodos.splice(targetIndex, 0, { ...draggedTodo, date: format(targetDate, 'yyyy-MM-dd') });
     
     const batch = writeBatch(firestore);
@@ -200,7 +207,6 @@ export function Calendar() {
     dayTodos.forEach((todo, index) => {
         const todoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
         const newOrder = (index + 1) * 10;
-        
         batch.update(todoRef, { order: newOrder, date: format(targetDate, 'yyyy-MM-dd') });
     });
 
