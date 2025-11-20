@@ -49,7 +49,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 export function Calendar() {
   const { toast } = useToast();
@@ -144,17 +143,28 @@ export function Calendar() {
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
-    // Check if it's a new date
-    if (!isSameDay(new Date(draggedTodo.date), dropDate)) {
-      const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
-      updateDocumentNonBlocking(todoRef, {
-          date: format(dropDate, "yyyy-MM-dd"),
-          order: Date.now(), // Move to the end of the new day
-      });
-      toast({
-          title: "할 일이 이동되었습니다.",
-          description: `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
-      });
+    const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
+    
+    // If dropping on a new day or onto an empty area of the same day
+    const isNewDay = !isSameDay(new Date(draggedTodo.date), dropDate);
+
+    // Get todos for the target day
+    const targetDayTodos = todos
+        .filter(t => isSameDay(new Date(t.date), dropDate) && t.id !== draggedTodoId)
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    if (isNewDay) {
+        const reorderedTodos = [...targetDayTodos, { ...draggedTodo, date: format(dropDate, 'yyyy-MM-dd')}];
+        const batch = writeBatch(firestore);
+        reorderedTodos.forEach((todo, index) => {
+            const currentTodoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
+            batch.update(currentTodoRef, { order: (index + 1) * 10, date: format(dropDate, 'yyyy-MM-dd') });
+        });
+        batch.commit().catch(err => console.error("Batch commit failed", err));
+    } else { // Dropping in empty space on the same day (move to last)
+         const batch = writeBatch(firestore);
+         batch.update(todoRef, { order: Date.now() });
+         batch.commit().catch(err => console.error("Batch commit failed", err));
     }
   };
   
@@ -169,38 +179,29 @@ export function Calendar() {
 
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
-
+    
     const targetDate = new Date(targetTodo.date);
-    const dayTodos = todos.filter(t => isSameDay(new Date(t.date), targetDate));
 
-    // Determine if dropping on upper or lower half of the target todo
+    let dayTodos = todos.filter(t => isSameDay(new Date(t.date), targetDate) && t.id !== draggedTodoId);
+
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const isDroppingOnLowerHalf = e.clientY > rect.top + rect.height / 2;
 
-    let reorderedTodos = dayTodos.filter(t => t.id !== draggedTodoId);
-
-    let targetIndex = reorderedTodos.findIndex(t => t.id === targetTodo.id);
+    let targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
     
-    // Adjust index for insertion
     if (isDroppingOnLowerHalf) {
         targetIndex++;
     }
 
-    // Insert the dragged todo at the new position
-    reorderedTodos.splice(targetIndex, 0, { ...draggedTodo, date: format(targetDate, 'yyyy-MM-dd') });
+    dayTodos.splice(targetIndex, 0, { ...draggedTodo, date: format(targetDate, 'yyyy-MM-dd') });
     
     const batch = writeBatch(firestore);
 
-    reorderedTodos.forEach((todo, index) => {
+    dayTodos.forEach((todo, index) => {
         const todoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
         const newOrder = (index + 1) * 10;
-
-        // Check if a DB update is actually needed
-        const needsUpdate = todo.order !== newOrder || !isSameDay(new Date(todo.date), targetDate);
-
-        if (needsUpdate) {
-            batch.update(todoRef, { order: newOrder, date: format(targetDate, 'yyyy-MM-dd') });
-        }
+        
+        batch.update(todoRef, { order: newOrder, date: format(targetDate, 'yyyy-MM-dd') });
     });
 
     batch.commit().catch(err => {
@@ -211,7 +212,7 @@ export function Calendar() {
             description: "데이터베이스 오류가 발생했습니다. 다시 시도해주세요."
         });
     });
-  };
+};
 
   const filteredTodos = useMemo(() => {
     if (!todos) return [];
@@ -373,7 +374,7 @@ export function Calendar() {
       {/* Mobile View: Compact Calendar + Agenda */}
       <div className="md:hidden flex flex-col flex-1 min-h-0">
         <div className="grid grid-cols-7 text-center text-xs text-muted-foreground">
-          {mobileWeekdays.map(day => <div key={day}>{day}</div>)}
+          {mobileWeekdays.map((day, index) => <div key={`${day}-${index}`}>{day}</div>)}
         </div>
         <div className="grid grid-cols-7 gap-y-2 mt-2">
             {calendarDays.map(day => {
@@ -397,7 +398,7 @@ export function Calendar() {
                             </time>
                         </div>
                         <div className="flex space-x-1 mt-1">
-                            {todosForDay.slice(0, 2).map(todo => (
+                            {todosForDay.slice(0, 3).map(todo => (
                                 <div key={todo.id} className={cn("w-1.5 h-1.5 rounded-full", {
                                     "bg-red-500": todo.importance === "High",
                                     "bg-yellow-500": todo.importance === "Medium",
@@ -523,3 +524,5 @@ export function Calendar() {
     </div>
   );
 }
+
+    
