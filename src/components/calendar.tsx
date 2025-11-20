@@ -54,6 +54,7 @@ import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 export function Calendar() {
   const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [agendaDate, setAgendaDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
@@ -76,7 +77,7 @@ export function Calendar() {
   }, [todosRef]);
 
   const { data: todos, isLoading: todosLoading } = useCollection<Todo>(todosQuery);
-
+  
   const handleLogout = async () => {
     try {
       await auth.signOut();
@@ -139,65 +140,66 @@ export function Calendar() {
 
     const draggedTodoId = e.dataTransfer.getData('todoId');
     if (!draggedTodoId) return;
-    
-    const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
-    
-    updateDocumentNonBlocking(todoRef, {
-        date: format(dropDate, "yyyy-MM-dd"),
-        order: Date.now(), // Set order to current timestamp to place it at the end
-    });
-    
-    toast({
-        title: "할 일이 이동되었습니다.",
-        description: `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
-    });
+
+    const draggedTodo = todos.find(t => t.id === draggedTodoId);
+    if (!draggedTodo) return;
+
+    // Check if it's a new date
+    if (!isSameDay(new Date(draggedTodo.date), dropDate)) {
+      const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
+      updateDocumentNonBlocking(todoRef, {
+          date: format(dropDate, "yyyy-MM-dd"),
+          order: Date.now(), // Move to the end of the new day
+      });
+      toast({
+          title: "할 일이 이동되었습니다.",
+          description: `새로운 날짜: ${format(dropDate, "yyyy-MM-dd")}`
+      });
+    }
   };
   
   const handleDropOnTodo = (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => {
     e.preventDefault();
     e.stopPropagation();
-  
+
     if (!user || !firestore || !todos) return;
-  
+
     const draggedTodoId = e.dataTransfer.getData('todoId');
     if (!draggedTodoId || draggedTodoId === targetTodo.id) return;
-  
+
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
 
     const targetDate = new Date(targetTodo.date);
-    
+    const dayTodos = todos.filter(t => isSameDay(new Date(t.date), targetDate));
+
+    // Determine if dropping on upper or lower half of the target todo
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const isDroppingOnLowerHalf = e.clientY > rect.top + rect.height / 2;
-    
-    let dayTodos = todos
-      .filter(t => isSameDay(new Date(t.date), targetDate))
-      .sort((a, b) => (a.order || 0) - (b.order || 0));
 
-    // Exclude the dragged todo for now
-    const dayTodosWithoutDragged = dayTodos.filter(t => t.id !== draggedTodoId);
+    let reorderedTodos = dayTodos.filter(t => t.id !== draggedTodoId);
 
-    let targetIndex = dayTodosWithoutDragged.findIndex(t => t.id === targetTodo.id);
+    let targetIndex = reorderedTodos.findIndex(t => t.id === targetTodo.id);
     
+    // Adjust index for insertion
     if (isDroppingOnLowerHalf) {
-      targetIndex++;
+        targetIndex++;
     }
 
-    const finalDayTodos = [...dayTodosWithoutDragged];
-    finalDayTodos.splice(targetIndex, 0, draggedTodo);
-
+    // Insert the dragged todo at the new position
+    reorderedTodos.splice(targetIndex, 0, { ...draggedTodo, date: format(targetDate, 'yyyy-MM-dd') });
+    
     const batch = writeBatch(firestore);
-    finalDayTodos.forEach((todo, index) => {
+
+    reorderedTodos.forEach((todo, index) => {
         const todoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
         const newOrder = (index + 1) * 10;
-        
-        const isMovedItem = todo.id === draggedTodoId;
-        const dateChanged = !isSameDay(new Date(draggedTodo.date), targetDate);
 
-        if (isMovedItem) {
-             batch.update(todoRef, { order: newOrder, date: format(targetDate, "yyyy-MM-dd") });
-        } else if (todo.order !== newOrder) {
-            batch.update(todoRef, { order: newOrder });
+        // Check if a DB update is actually needed
+        const needsUpdate = todo.order !== newOrder || !isSameDay(new Date(todo.date), targetDate);
+
+        if (needsUpdate) {
+            batch.update(todoRef, { order: newOrder, date: format(targetDate, 'yyyy-MM-dd') });
         }
     });
 
@@ -210,7 +212,6 @@ export function Calendar() {
         });
     });
   };
-
 
   const filteredTodos = useMemo(() => {
     if (!todos) return [];
@@ -228,17 +229,17 @@ export function Calendar() {
   const calendarDays = eachDayOfInterval({
     start: firstDayOfCalendar,
     end: lastDayOfCalendar,
-  }).filter((day) => {
-    const dayOfWeek = getDay(day);
-    return dayOfWeek >= 1 && dayOfWeek <= 5; // Monday to Friday
   });
 
-  const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+  const mobileWeekdays = ["M", "T", "W", "T", "F", "S", "S"];
 
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
-  const goToToday = () => setCurrentDate(new Date());
-
+  const goToToday = () => {
+    setCurrentDate(new Date());
+    setAgendaDate(new Date());
+  };
 
   const handleExport = () => {
     if (!user || !todos) return;
@@ -251,7 +252,7 @@ export function Calendar() {
           importance: todo.importance,
           completed: todo.completed,
         }));
-
+        
         const csvString = await exportTodosByYear(currentDate.getFullYear(), plainTodos);
         const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
         const link = document.createElement("a");
@@ -276,6 +277,12 @@ export function Calendar() {
       }
     });
   };
+
+  const todosForAgenda = useMemo(() => {
+    return filteredTodos
+      .filter((todo) => isSameDay(new Date(todo.date), agendaDate))
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [filteredTodos, agendaDate]);
 
   if (todosLoading) {
     return (
@@ -362,76 +369,150 @@ export function Calendar() {
           </AlertDialog>
         </div>
       </header>
+      
+      {/* Mobile View: Compact Calendar + Agenda */}
+      <div className="md:hidden flex flex-col flex-1 min-h-0">
+        <div className="grid grid-cols-7 text-center text-xs text-muted-foreground">
+          {mobileWeekdays.map(day => <div key={day}>{day}</div>)}
+        </div>
+        <div className="grid grid-cols-7 gap-y-2 mt-2">
+            {calendarDays.map(day => {
+                const todosForDay = filteredTodos.filter(todo => isSameDay(new Date(todo.date), day));
+                const isToday = isSameDay(day, new Date());
+                const isSelected = isSameDay(day, agendaDate);
 
-      <div className="grid grid-cols-5 gap-2">
-        {weekdays.map((day) => (
-          <div
-            key={day}
-            className="pb-2 text-center font-bold text-primary sticky top-0 bg-background z-10"
-          >
-            {day}
-          </div>
-        ))}
-      </div>
-      <div className="flex-1 grid grid-cols-5 gap-2 overflow-y-auto">
-        {calendarDays.map((day) => {
-          const todosForDay = filteredTodos
-            .filter((todo) => isSameDay(new Date(todo.date), day))
-            .sort((a, b) => (a.order || 0) - (b.order || 0));
-          const isToday = isSameDay(day, new Date());
-          return (
-            <Card
-              key={day.toString()}
-              className={cn(
-                "transition-colors duration-200 hover:bg-accent/30 flex flex-col relative",
-                !isSameMonth(day, currentDate) && "bg-muted/50",
-                isToday && "bg-accent/50"
-              )}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDropOnDay(e, day)}
-            >
-              <CardContent className="p-2 flex-grow flex flex-col">
-                <div className="flex justify-between items-center">
-                   <div className="flex items-center gap-2">
-                    <time
-                      dateTime={format(day, "yyyy-MM-dd")}
-                      className={cn(
-                        "font-semibold",
-                        isToday && "text-accent-foreground"
-                      )}
+                return (
+                    <div
+                        key={day.toString()}
+                        className={cn("flex flex-col items-center justify-start h-12", !isSameMonth(day, currentDate) && "text-muted-foreground/50")}
+                        onClick={() => setAgendaDate(day)}
                     >
-                      {format(day, "d")}
-                    </time>
-                    {isToday && (
-                       <Badge>
-                        Today
-                      </Badge>
-                    )}
-                  </div>
-                  <Button
+                        <div className={cn(
+                            "w-8 h-8 flex items-center justify-center rounded-full transition-colors",
+                            isToday && "bg-red-500 text-white",
+                            isSelected && !isToday && "bg-primary/20",
+                        )}>
+                            <time dateTime={format(day, "yyyy-MM-dd")}>
+                                {format(day, "d")}
+                            </time>
+                        </div>
+                        <div className="flex space-x-1 mt-1">
+                            {todosForDay.slice(0, 2).map(todo => (
+                                <div key={todo.id} className={cn("w-1.5 h-1.5 rounded-full", {
+                                    "bg-red-500": todo.importance === "High",
+                                    "bg-yellow-500": todo.importance === "Medium",
+                                    "bg-green-500": todo.importance === "Low",
+                                })} />
+                            ))}
+                        </div>
+                    </div>
+                )
+            })}
+        </div>
+        <div className="flex-1 overflow-y-auto mt-4 space-y-2 pr-2">
+             <div className="flex justify-between items-center px-1">
+                <h2 className="font-bold text-lg">{format(agendaDate, "MMMM d")}</h2>
+                 <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 rounded-full"
-                    onClick={() => handleOpenNewTodoDialog(day)}
+                    className="h-8 w-8"
+                    onClick={() => handleOpenNewTodoDialog(agendaDate)}
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-5 w-5" />
                   </Button>
-                </div>
-                <div className="mt-2 space-y-2 flex-grow min-h-[60px]">
-                  {todosForDay.map((todo) => (
+            </div>
+            {todosForAgenda.length > 0 ? (
+                todosForAgenda.map(todo => (
                     <TodoItem
                       key={todo.id}
                       todo={todo}
                       onSelect={handleSelectTodo}
                       onDrop={handleDropOnTodo}
-                      isToday={isToday}
+                      isToday={isSameDay(agendaDate, new Date())}
                     />
-                  ))}
+                ))
+            ) : (
+                <div className="text-center text-muted-foreground pt-8">
+                    No todos for this day.
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+            )}
+        </div>
+      </div>
+
+      {/* Desktop View: Full Grid Calendar */}
+      <div className="hidden md:flex flex-col flex-1">
+        <div className="grid grid-cols-5 gap-2">
+          {weekdays.map((day) => (
+            <div
+              key={day}
+              className="pb-2 text-center font-bold text-primary sticky top-0 bg-background z-10"
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+        <div className="flex-1 grid grid-cols-5 gap-2 overflow-y-auto">
+          {calendarDays
+            .filter(day => getDay(day) >= 1 && getDay(day) <= 5)
+            .map((day) => {
+            const todosForDay = filteredTodos
+              .filter((todo) => isSameDay(new Date(todo.date), day))
+              .sort((a, b) => (a.order || 0) - (b.order || 0));
+            const isToday = isSameDay(day, new Date());
+            return (
+              <Card
+                key={day.toString()}
+                className={cn(
+                  "transition-colors duration-200 hover:bg-accent/30 flex flex-col relative",
+                  !isSameMonth(day, currentDate) && "bg-muted/50",
+                  isToday && "bg-accent/50"
+                )}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDropOnDay(e, day)}
+              >
+                <CardContent className="p-2 flex-grow flex flex-col">
+                  <div className="flex justify-between items-center">
+                     <div className="flex items-center gap-2">
+                      <time
+                        dateTime={format(day, "yyyy-MM-dd")}
+                        className={cn(
+                          "font-semibold",
+                          isToday && "text-accent-foreground"
+                        )}
+                      >
+                        {format(day, "d")}
+                      </time>
+                      {isToday && (
+                         <Badge>
+                          Today
+                        </Badge>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-full"
+                      onClick={() => handleOpenNewTodoDialog(day)}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="mt-2 space-y-2 flex-grow min-h-[60px]">
+                    {todosForDay.map((todo) => (
+                      <TodoItem
+                        key={todo.id}
+                        todo={todo}
+                        onSelect={handleSelectTodo}
+                        onDrop={handleDropOnTodo}
+                        isToday={isToday}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
       <TodoDialog
         isOpen={isDialogOpen}
@@ -442,5 +523,3 @@ export function Calendar() {
     </div>
   );
 }
-
-    

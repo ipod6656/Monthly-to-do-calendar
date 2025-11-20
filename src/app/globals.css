@@ -88,3 +88,19 @@
     padding-left: env(safe-area-inset-left);
   }
 }
+
+.todo-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+}
+
+.todo-dot.high {
+  background-color: #ef4444; /* red-500 */
+}
+.todo-dot.medium {
+  background-color: #f59e0b; /* amber-500 */
+}
+.todo-dot.low {
+  background-color: #22c55e; /* green-500 */
+}

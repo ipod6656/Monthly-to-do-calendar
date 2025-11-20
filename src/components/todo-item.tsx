@@ -88,7 +88,6 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
     }
   };
 
-
   return (
     <Card
       draggable={isDraggable}
@@ -97,10 +96,15 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onClick={handleClick}
+      onMouseUp={() => {
+        // This ensures dragging stops even if mouse is released outside the item
+        if (isDraggable) setDraggable(false);
+      }}
       className={cn(
         "cursor-pointer transition-colors duration-200 hover:bg-accent/20 relative",
         todo.completed && "bg-muted/60",
-        isToday && !todo.completed && "bg-card/60"
+        isToday && !todo.completed && "bg-card/60",
+        isDraggable && "opacity-50"
       )}
     >
       {dropPosition === 'top' && (
@@ -132,11 +136,16 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
             {todo.title}
           </div>
           <div
-            onMouseDown={() => setDraggable(true)}
-            onMouseUp={() => setDraggable(false)}
-            onMouseLeave={() => { if (isDraggable) setDraggable(false); }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              setDraggable(true);
+            }}
+            onMouseUp={(e) => {
+              e.stopPropagation();
+              setDraggable(false);
+            }}
             onClick={(e) => e.stopPropagation()}
-            className="cursor-move p-1 text-muted-foreground hover:text-foreground"
+            className="cursor-move p-1 text-muted-foreground hover:text-foreground touch-none"
           >
             <Grip className="h-5 w-5" />
           </div>
