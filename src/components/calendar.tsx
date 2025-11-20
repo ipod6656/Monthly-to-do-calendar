@@ -24,6 +24,8 @@ import {
   Loader2,
   LogOut,
   Trash2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useMemo, useState, useTransition, DragEvent } from "react";
 import { Button } from "@/components/ui/button";
@@ -50,6 +52,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 export function Calendar() {
   const { toast } = useToast();
@@ -61,6 +64,7 @@ export function Calendar() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isExporting, startExportTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
+  const [isCalendarCollapsed, setCalendarCollapsed] = useState(false);
 
   const auth = useAuth();
   const { user } = useUser();
@@ -145,31 +149,29 @@ export function Calendar() {
     if (!draggedTodo) return;
 
     const newDateStr = format(dropDate, 'yyyy-MM-dd');
-    const isSameDayDrop = draggedTodo.date === newDateStr;
 
     // Get todos for the target day, excluding the one being dragged
     const targetDayTodos = todos.filter(t => t.date === newDateStr && t.id !== draggedTodoId);
     
-    // Calculate new order to be the last one. Using timestamps for simplicity.
+    // Calculate new order to be the last one.
     const newOrder = (targetDayTodos.length > 0) 
       ? Math.max(...targetDayTodos.map(t => t.order)) + 10 
       : Date.now();
 
     const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
-    const batch = writeBatch(firestore);
 
-    // If moving to a new day, or reordering to the end of the same day
-    batch.update(todoRef, { date: newDateStr, order: newOrder });
-
-    batch.commit().catch(err => {
-      console.error("Drop on day batch commit failed", err);
-      toast({
-        variant: "destructive",
-        title: "이동 실패",
-        description: "데이터베이스 오류가 발생했습니다."
+    writeBatch(firestore)
+      .update(todoRef, { date: newDateStr, order: newOrder })
+      .commit()
+      .catch(err => {
+        console.error("Drop on day batch commit failed", err);
+        toast({
+          variant: "destructive",
+          title: "이동 실패",
+          description: "데이터베이스 오류가 발생했습니다."
+        });
       });
-    });
-};
+  };
 
   const handleDropOnTodo = (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => {
     e.preventDefault();
@@ -182,46 +184,34 @@ export function Calendar() {
 
     const draggedTodo = todos.find(t => t.id === draggedTodoId);
     if (!draggedTodo) return;
-
+    
     const targetDateStr = targetTodo.date;
     
-    // Determine the list of todos for the target day
     let dayTodos = todos
       .filter(t => t.date === targetDateStr)
       .sort((a, b) => (a.order || 0) - (b.order || 0));
 
-    // If dragging from another day, the draggedTodo is not in this list yet
-    if (draggedTodo.date !== targetDateStr) {
-      dayTodos = dayTodos.filter(t => t.id !== draggedTodoId); // Ensure it's not there
-    }
-
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const isDroppingOnLowerHalf = e.clientY > rect.top + rect.height / 2;
 
-    const originalIndex = dayTodos.findIndex(t => t.id === draggedTodoId);
-    const targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
-
-    // Remove the dragged todo from its original position within the day
-    if (originalIndex > -1) {
-      dayTodos.splice(originalIndex, 1);
+    const draggedItemInDay = dayTodos.find(t => t.id === draggedTodoId);
+    
+    if (draggedItemInDay) {
+        dayTodos = dayTodos.filter(t => t.id !== draggedTodoId);
     }
     
-    // Calculate the new index for insertion
-    let newIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
+    let targetIndex = dayTodos.findIndex(t => t.id === targetTodo.id);
     if (isDroppingOnLowerHalf) {
-      newIndex++;
+        targetIndex++;
     }
 
-    // Insert the dragged todo at the new position
-    dayTodos.splice(newIndex, 0, { ...draggedTodo, date: targetDateStr });
+    dayTodos.splice(targetIndex, 0, { ...draggedTodo, date: targetDateStr });
 
     const batch = writeBatch(firestore);
 
-    // Re-assign order to all todos in the updated list
     dayTodos.forEach((todo, index) => {
       const todoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
       const newOrder = (index + 1) * 10;
-      // Only update if the order or date has changed
       if (todo.order !== newOrder || todo.date !== targetDateStr) {
         batch.update(todoRef, { order: newOrder, date: targetDateStr });
       }
@@ -257,6 +247,11 @@ export function Calendar() {
     });
   }, [firstDayOfMonth, lastDayOfMonth]);
 
+  const weekDays = useMemo(() => {
+    const start = startOfWeek(agendaDate, { weekStartsOn: 1 });
+    const end = endOfWeek(agendaDate, { weekStartsOn: 1 });
+    return eachDayOfInterval({ start, end });
+  }, [agendaDate]);
 
   const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
   const mobileWeekdays = ["M", "T", "W", "T", "F", "S", "S"];
@@ -310,6 +305,54 @@ export function Calendar() {
       .filter((todo) => isSameDay(new Date(todo.date), agendaDate))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   }, [filteredTodos, agendaDate]);
+
+  const MobileCalendarGrid = ({ days }: { days: Date[] }) => (
+    <div className="grid grid-cols-7 gap-y-2">
+      {days.map(day => {
+        const todosForDay = filteredTodos.filter(todo => isSameDay(new Date(todo.date), day));
+        const isToday = isSameDay(day, new Date());
+        const isSelected = isSameDay(day, agendaDate);
+        const isCurrentMonth = isSameMonth(day, currentDate);
+        
+        return (
+          <div
+            key={day.toString()}
+            className={cn(
+              "flex flex-col items-center justify-start h-12 transition-opacity",
+              !isCurrentMonth && "opacity-50"
+            )}
+            onClick={() => {
+              if (!isCurrentMonth) {
+                setCurrentDate(day);
+              }
+              setAgendaDate(day);
+              setCalendarCollapsed(true);
+            }}
+          >
+            <div className={cn(
+              "w-8 h-8 flex items-center justify-center rounded-full transition-colors",
+              isToday && "bg-red-500 text-white",
+              isSelected && !isToday && "bg-primary text-primary-foreground",
+            )}>
+              <time dateTime={format(day, "yyyy-MM-dd")}>
+                {format(day, "d")}
+              </time>
+            </div>
+            <div className="flex space-x-1 mt-1">
+              {todosForDay.slice(0, 3).map(todo => (
+                <div key={todo.id} className={cn("w-1.5 h-1.5 rounded-full", {
+                  "bg-red-500": todo.importance === "High",
+                  "bg-yellow-500": todo.importance === "Medium",
+                  "bg-green-500": todo.importance === "Low",
+                })} />
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  );
+
 
   if (todosLoading) {
     return (
@@ -414,72 +457,57 @@ export function Calendar() {
           </div>
         </header>
         
-        {/* Mobile View: Compact Calendar + Agenda */}
+        {/* Mobile View: Collapsible Calendar + Agenda */}
         <div className="md:hidden flex flex-col flex-1 min-h-0">
-          <div className="grid grid-cols-7 text-center text-xs text-muted-foreground">
-            {mobileWeekdays.map((day, index) => <div key={`${day}-${index}`}>{day}</div>)}
-          </div>
-          <div className="grid grid-cols-7 gap-y-2 mt-2">
-              {calendarDays.map(day => {
-                  const todosForDay = filteredTodos.filter(todo => isSameDay(new Date(todo.date), day));
-                  const isToday = isSameDay(day, new Date());
-                  const isSelected = isSameDay(day, agendaDate);
-
-                  return (
-                      <div
-                          key={day.toString()}
-                          className={cn("flex flex-col items-center justify-start h-12", !isSameMonth(day, currentDate) && "text-muted-foreground/50")}
-                          onClick={() => setAgendaDate(day)}
-                      >
-                          <div className={cn(
-                              "w-8 h-8 flex items-center justify-center rounded-full transition-colors",
-                              isToday && "bg-red-500 text-white",
-                              isSelected && !isToday && "bg-primary/20",
-                          )}>
-                              <time dateTime={format(day, "yyyy-MM-dd")}>
-                                  {format(day, "d")}
-                              </time>
-                          </div>
-                          <div className="flex space-x-1 mt-1">
-                              {todosForDay.slice(0, 3).map(todo => (
-                                  <div key={todo.id} className={cn("w-1.5 h-1.5 rounded-full", {
-                                      "bg-red-500": todo.importance === "High",
-                                      "bg-yellow-500": todo.importance === "Medium",
-                                      "bg-green-500": todo.importance === "Low",
-                                  })} />
-                              ))}
-                          </div>
-                      </div>
-                  )
-              })}
-          </div>
-          <div className="flex-1 overflow-y-auto mt-4 space-y-2 pr-2">
-              <div className="flex justify-between items-center px-1">
-                  <h2 className="font-bold text-lg">{format(agendaDate, "MMMM d")}</h2>
-                  <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleOpenNewTodoDialog(agendaDate)}
-                    >
-                      <Plus className="h-5 w-5" />
-                    </Button>
+          <Collapsible open={!isCalendarCollapsed} onOpenChange={(open) => setCalendarCollapsed(!open)}>
+            <div className="grid grid-cols-7 text-center text-xs text-muted-foreground mb-2">
+              {mobileWeekdays.map((day, index) => <div key={`${day}-${index}`}>{day}</div>)}
+            </div>
+            <CollapsibleContent className="transition-all data-[state=closed]:-mt-2">
+              <MobileCalendarGrid days={calendarDays} />
+            </CollapsibleContent>
+            <CollapsibleContent className="data-[state=open]:hidden">
+              <MobileCalendarGrid days={weekDays} />
+            </CollapsibleContent>
+          </Collapsible>
+          
+          <div className="flex-1 overflow-y-auto mt-2 space-y-2 pr-2">
+              <div className="flex justify-between items-center px-1 sticky top-0 bg-background/80 backdrop-blur-sm z-10 py-2 -mt-2">
+                <div className="flex items-center gap-2">
+                   <h2 className="font-bold text-lg">{format(agendaDate, "MMMM d")}</h2>
+                   <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                        {isCalendarCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                        <span className="sr-only">Toggle calendar</span>
+                      </Button>
+                   </CollapsibleTrigger>
+                </div>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleOpenNewTodoDialog(agendaDate)}
+                  >
+                    <Plus className="h-5 w-5" />
+                  </Button>
               </div>
-              {todosForAgenda.length > 0 ? (
-                  todosForAgenda.map(todo => (
-                      <TodoItem
-                        key={todo.id}
-                        todo={todo}
-                        onSelect={handleSelectTodo}
-                        onDrop={handleDropOnTodo}
-                        isToday={isSameDay(agendaDate, new Date())}
-                      />
-                  ))
-              ) : (
-                  <div className="text-center text-muted-foreground pt-8">
-                      No todos for this day.
-                  </div>
-              )}
+              <div className="pt-2">
+                {todosForAgenda.length > 0 ? (
+                    todosForAgenda.map(todo => (
+                        <TodoItem
+                          key={todo.id}
+                          todo={todo}
+                          onSelect={handleSelectTodo}
+                          onDrop={handleDropOnTodo}
+                          isToday={isSameDay(agendaDate, new Date())}
+                        />
+                    ))
+                ) : (
+                    <div className="text-center text-muted-foreground pt-8">
+                        No todos for this day.
+                    </div>
+                )}
+              </div>
           </div>
         </div>
 
@@ -568,5 +596,3 @@ export function Calendar() {
     </TooltipProvider>
   );
 }
-
-    
