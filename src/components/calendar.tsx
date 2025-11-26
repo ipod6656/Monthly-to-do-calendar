@@ -14,6 +14,8 @@ import {
   startOfMonth,
   startOfWeek,
   subMonths,
+  parseISO,
+  getDate,
 } from "date-fns";
 import {
   ChevronLeft,
@@ -53,6 +55,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 export function Calendar() {
   const { toast } = useToast();
@@ -221,48 +224,85 @@ export function Calendar() {
     const newDateStr = format(dropDate, 'yyyy-MM-dd');
     const oldDateStr = draggedTodo.date;
 
-    if (newDateStr === oldDateStr) return; // Dropping on same day empty space, no reorder needed for this handler
-
-    const targetDayTodos = todos.filter(t => t.date === newDateStr);
-    
-    const newOrder = (targetDayTodos.length > 0) 
-      ? Math.max(...targetDayTodos.map(t => t.order)) + 10 
-      : Date.now();
+    if (newDateStr === oldDateStr) return;
 
     const todoRef = doc(firestore, 'users', user.uid, 'todos', draggedTodoId);
 
-    const batch = writeBatch(firestore)
-    batch.update(todoRef, { date: newDateStr, order: newOrder });
-
-    // Re-order the source day
-    const sourceDayTodos = todos
-        .filter(t => t.date === oldDateStr && t.id !== draggedTodoId)
-        .sort((a, b) => (a.order || 0) - (b.order || 0));
-
-    sourceDayTodos.forEach((todo, index) => {
-        const sourceTodoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
-        const newSourceOrder = (index + 1) * 10;
-        if (todo.order !== newSourceOrder) {
-            batch.update(sourceTodoRef, { order: newSourceOrder });
-        }
-    });
-    
-    batch.commit().catch(err => {
-        console.error("Drop on day batch commit failed", err);
-        toast({
-          variant: "destructive",
-          title: "이동 실패",
-          description: "데이터베이스 오류가 발생했습니다."
+    // If a recurring todo is dropped on a new date, make it a single instance
+    if (draggedTodo.isRecurring) {
+        updateDocumentNonBlocking(todoRef, { 
+          date: newDateStr, 
+          isRecurring: false,
+          updatedAt: serverTimestamp(),
         });
-      });
+    } else {
+        const targetDayTodos = todos.filter(t => t.date === newDateStr);
+        const newOrder = (targetDayTodos.length > 0) 
+          ? Math.max(...targetDayTodos.map(t => t.order)) + 10 
+          : Date.now();
+        
+        const batch = writeBatch(firestore)
+        batch.update(todoRef, { date: newDateStr, order: newOrder });
+
+        const sourceDayTodos = todos
+            .filter(t => t.date === oldDateStr && t.id !== draggedTodoId)
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        sourceDayTodos.forEach((todo, index) => {
+            const sourceTodoRef = doc(firestore, 'users', user.uid, 'todos', todo.id);
+            const newSourceOrder = (index + 1) * 10;
+            if (todo.order !== newSourceOrder) {
+                batch.update(sourceTodoRef, { order: newSourceOrder });
+            }
+        });
+        
+        batch.commit().catch(err => {
+            console.error("Drop on day batch commit failed", err);
+            toast({
+              variant: "destructive",
+              title: "이동 실패",
+              description: "데이터베이스 오류가 발생했습니다."
+            });
+          });
+    }
   };
 
-  const filteredTodos = useMemo(() => {
+  const allTodosForCalendar = useMemo(() => {
     if (!todos) return [];
-    return todos.filter((todo) =>
+  
+    const recurringTodosExpanded: Todo[] = [];
+  
+    todos.forEach(todo => {
+      if (todo.isRecurring) {
+        const originalDate = parseISO(todo.date);
+        const dayOfMonth = getDate(originalDate);
+  
+        // Create instances for a wide range of months to be safe
+        for (let i = -12; i <= 12; i++) {
+          let targetMonth = addMonths(currentDate, i);
+          let newDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), dayOfMonth);
+  
+          // Check if the date is valid (e.g., handles Feb 30)
+          if (getDate(newDate) === dayOfMonth) {
+            recurringTodosExpanded.push({
+              ...todo,
+              // Keep original ID for selection, but a new key for rendering
+              id: `${todo.id}-recurring-${format(newDate, 'yyyy-MM-dd')}`,
+              originalId: todo.id,
+              date: format(newDate, 'yyyy-MM-dd'),
+              completed: false, // Recurring todos are never shown as completed in future months
+            });
+          }
+        }
+      } else {
+        recurringTodosExpanded.push(todo);
+      }
+    });
+  
+    return recurringTodosExpanded.filter((todo) =>
       todo.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [todos, searchQuery]);
+  }, [todos, searchQuery, currentDate]);
 
   const firstDayOfMonth = startOfMonth(currentDate);
   const lastDayOfMonth = endOfMonth(currentDate);
@@ -330,15 +370,15 @@ export function Calendar() {
   };
 
   const todosForAgenda = useMemo(() => {
-    return filteredTodos
+    return allTodosForCalendar
       .filter((todo) => isSameDay(new Date(todo.date), agendaDate))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
-  }, [filteredTodos, agendaDate]);
+  }, [allTodosForCalendar, agendaDate]);
 
   const MobileCalendarGrid = ({ days }: { days: Date[] }) => (
     <div className="grid grid-cols-7 gap-y-2">
       {days.map(day => {
-        const todosForDay = filteredTodos.filter(todo => isSameDay(new Date(todo.date), day));
+        const todosForDay = allTodosForCalendar.filter(todo => isSameDay(new Date(todo.date), day));
         const isToday = isSameDay(day, new Date());
         const isSelected = isSameDay(day, agendaDate);
         const isCurrentMonth = isSameMonth(day, currentDate);
@@ -527,7 +567,12 @@ export function Calendar() {
                         <TodoItem
                           key={todo.id}
                           todo={todo}
-                          onSelect={handleSelectTodo}
+                          onSelect={() => {
+                            const originalTodo = todos?.find(t => t.id === (todo.originalId || todo.id));
+                            if (originalTodo) {
+                              handleSelectTodo(originalTodo);
+                            }
+                          }}
                           onDrop={handleDropOnTodo}
                           isToday={isSameDay(agendaDate, new Date())}
                         />
@@ -559,7 +604,7 @@ export function Calendar() {
             {calendarDays
               .filter(day => getDay(day) >= 1 && getDay(day) <= 5)
               .map((day) => {
-              const todosForDay = filteredTodos
+              const todosForDay = allTodosForCalendar
                 .filter((todo) => isSameDay(new Date(todo.date), day))
                 .sort((a, b) => (a.order || 0) - (b.order || 0));
               const isToday = isSameDay(day, new Date());
@@ -606,7 +651,12 @@ export function Calendar() {
                         <TodoItem
                           key={todo.id}
                           todo={todo}
-                          onSelect={handleSelectTodo}
+                          onSelect={() => {
+                            const originalTodo = todos?.find(t => t.id === (todo.originalId || todo.id));
+                            if (originalTodo) {
+                              handleSelectTodo(originalTodo);
+                            }
+                          }}
                           onDrop={handleDropOnTodo}
                           isToday={isToday}
                         />
@@ -628,7 +678,3 @@ export function Calendar() {
     </TooltipProvider>
   );
 }
-
-
-
-    

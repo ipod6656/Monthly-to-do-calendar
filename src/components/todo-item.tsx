@@ -10,10 +10,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser } from "@/firebase";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { doc, serverTimestamp } from "firebase/firestore";
-import { Grip } from "lucide-react";
+import { Grip, Repeat } from "lucide-react";
 
 interface TodoItemProps {
-  todo: Todo;
+  todo: Todo & { originalId?: string };
   onSelect: (todo: Todo) => void;
   onDrop: (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => void;
   isToday?: boolean;
@@ -30,10 +30,10 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   const firestore = useFirestore();
 
   const handleCheckedChange = (checked: boolean) => {
-    if (!user || !firestore) return;
+    if (!user || !firestore || !todo.originalId) return; // Prevent updating recurring instances
     startTransition(() => {
       try {
-        const todoRef = doc(firestore, "users", user.uid, "todos", todo.id);
+        const todoRef = doc(firestore, "users", user.uid, "todos", todo.originalId || todo.id);
         updateDocumentNonBlocking(todoRef, {
           completed: checked,
           updatedAt: serverTimestamp(),
@@ -49,7 +49,8 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   };
   
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
-    e.dataTransfer.setData('todoId', todo.id);
+    // We must use the original ID for database operations
+    e.dataTransfer.setData('todoId', todo.originalId || todo.id);
     e.stopPropagation();
   };
 
@@ -88,9 +89,11 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
     }
   };
 
+  const isCompleted = todo.isRecurring ? false : todo.completed;
+
   return (
     <Card
-      draggable={isDraggable}
+      draggable={isDraggable && !todo.isRecurring}
       onDragStart={handleDragStart}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
@@ -102,8 +105,8 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
       }}
       className={cn(
         "cursor-pointer transition-colors duration-200 hover:bg-accent/20 relative",
-        todo.completed && "bg-muted/60",
-        isToday && !todo.completed && "bg-card/60",
+        isCompleted && "bg-muted/60",
+        isToday && !isCompleted && "bg-card/60",
         isDraggable && "opacity-50"
       )}
     >
@@ -117,26 +120,28 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
         <div className="flex items-center gap-2">
           <Checkbox
             id={`todo-${todo.id}`}
-            checked={todo.completed}
+            checked={isCompleted}
             onCheckedChange={handleCheckedChange}
             onClick={(e) => e.stopPropagation()}
             aria-label={`Mark ${todo.title} as ${
-              todo.completed ? "not completed" : "completed"
+              isCompleted ? "not completed" : "completed"
             }`}
-            disabled={isPending}
+            disabled={isPending || todo.isRecurring}
             className="flex-shrink-0"
           />
           <div
             className={cn(
               "flex-grow text-sm font-normal whitespace-pre-wrap break-words",
-              todo.completed && "line-through text-muted-foreground",
-              todo.importance === "High" && !todo.completed && "text-red-500 font-bold"
+              isCompleted && "line-through text-muted-foreground",
+              todo.importance === "High" && !isCompleted && "text-red-500 font-bold"
             )}
           >
             {todo.title}
           </div>
+          {todo.isRecurring && <Repeat className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
           <div
             onMouseDown={(e) => {
+              if (todo.isRecurring) return;
               e.stopPropagation();
               setDraggable(true);
             }}
@@ -145,7 +150,9 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
               setDraggable(false);
             }}
             onClick={(e) => e.stopPropagation()}
-            className="cursor-move p-1 text-muted-foreground hover:text-foreground touch-none"
+            className={cn("cursor-move p-1 text-muted-foreground hover:text-foreground touch-none",
+              todo.isRecurring && "cursor-not-allowed opacity-50"
+            )}
           >
             <Grip className="h-5 w-5" />
           </div>

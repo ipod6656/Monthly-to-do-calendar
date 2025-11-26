@@ -57,6 +57,7 @@ const todoSchema = z.object({
   importance: z.enum(["High", "Medium", "Low"]),
   completed: z.boolean().default(false),
   order: z.number().default(Date.now),
+  isRecurring: z.boolean().default(false),
 });
 
 type TodoFormData = z.infer<typeof todoSchema>;
@@ -87,6 +88,7 @@ export function TodoDialog({
       importance: "Medium",
       completed: false,
       order: Date.now(),
+      isRecurring: false,
     },
   });
 
@@ -104,6 +106,7 @@ export function TodoDialog({
                 importance: "Medium",
                 completed: false,
                 order: Date.now(),
+                isRecurring: false,
             });
         }
     }
@@ -235,27 +238,48 @@ export function TodoDialog({
                 </FormItem>
               )}
             />
-             {todo && (
-              <FormField
-                control={form.control}
-                name="completed"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>
-                        완료으로 표시
-                      </FormLabel>
-                    </div>
-                  </FormItem>
+             <div className="flex items-center space-x-2">
+                <FormField
+                    control={form.control}
+                    name="isRecurring"
+                    render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                        <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                        <FormLabel>
+                            매월 반복
+                        </FormLabel>
+                        </div>
+                    </FormItem>
+                    )}
+                />
+                {todo && (
+                <FormField
+                    control={form.control}
+                    name="completed"
+                    render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                        <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                        <FormLabel>
+                            완료으로 표시
+                        </FormLabel>
+                        </div>
+                    </FormItem>
+                    )}
+                />
                 )}
-              />
-            )}
+            </div>
             <DialogFooter className="pt-4 grid gap-2">
               <Button type="submit" disabled={isPending} className={!todo ? "w-full" : ""}>
                 {isPending ? "저장 중..." : (todo ? "변경 내용 저장" : "할 일 만들기")}

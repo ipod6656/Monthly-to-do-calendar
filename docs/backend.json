@@ -9,6 +9,10 @@
           "type": "string",
           "description": "The text description of the todo item."
         },
+        "description": {
+          "type": "string",
+          "description": "A more detailed description of the todo item."
+        },
         "date": {
           "type": "string",
           "description": "The date the todo is due.",
@@ -16,7 +20,11 @@
         },
         "importance": {
           "type": "string",
-          "enum": ["High", "Medium", "Low"],
+          "enum": [
+            "High",
+            "Medium",
+            "Low"
+          ],
           "description": "The level of importance assigned to the todo item."
         },
         "completed": {
@@ -26,6 +34,10 @@
         "order": {
           "type": "number",
           "description": "The sort order of the todo item within a given day."
+        },
+        "isRecurring": {
+          "type": "boolean",
+          "description": "Indicates if the todo item repeats monthly."
         }
       },
       "required": [
