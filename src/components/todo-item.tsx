@@ -30,10 +30,13 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   const firestore = useFirestore();
 
   const handleCheckedChange = (checked: boolean) => {
-    if (!user || !firestore || !todo.originalId) return; // Prevent updating recurring instances
+    if (!user || !firestore) return;
+    const targetId = todo.originalId || todo.id;
+    if (!targetId) return;
+
     startTransition(() => {
       try {
-        const todoRef = doc(firestore, "users", user.uid, "todos", todo.originalId || todo.id);
+        const todoRef = doc(firestore, "users", user.uid, "todos", targetId);
         updateDocumentNonBlocking(todoRef, {
           completed: checked,
           updatedAt: serverTimestamp(),
@@ -89,7 +92,11 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
     }
   };
 
-  const isCompleted = todo.isRecurring ? false : todo.completed;
+  // For a recurring instance shown on the calendar, 'completed' should be based on its own state, but for display, it is always false.
+  // For a non-recurring todo, it's just its own 'completed' status.
+  const isCompleted = todo.isRecurring && todo.originalId ? false : todo.completed;
+  const isRecurringInstance = todo.isRecurring && !!todo.originalId;
+
 
   return (
     <Card
@@ -126,7 +133,7 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
             aria-label={`Mark ${todo.title} as ${
               isCompleted ? "not completed" : "completed"
             }`}
-            disabled={isPending || todo.isRecurring}
+            disabled={isPending || isRecurringInstance}
             className="flex-shrink-0"
           />
           <div
