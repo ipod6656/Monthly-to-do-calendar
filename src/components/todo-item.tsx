@@ -11,6 +11,7 @@ import { useFirestore, useUser } from "@/firebase";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { doc, serverTimestamp } from "firebase/firestore";
 import { Grip, Repeat } from "lucide-react";
+import { TodoDescription } from "./todo-description";
 
 interface TodoItemProps {
   todo: Todo & { originalId?: string };
@@ -39,7 +40,7 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
     startTransition(() => {
       try {
         const todoRef = doc(firestore, "users", user.uid, "todos", targetId);
-        let updateData: Partial<Todo> & { updatedAt: any };
+        let updateData: Partial<Omit<Todo, 'id'>> & { updatedAt: any };
 
         if (checked) {
           // When checking as completed
@@ -130,8 +131,7 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
       className={cn(
         "cursor-pointer transition-colors duration-200 hover:bg-accent/20 relative",
         isCompleted && "bg-muted/60",
-        isToday && !isCompleted && "bg-card/60",
-        isDraggable && "opacity-50"
+        isToday && !isCompleted && "bg-card/60"
       )}
     >
       {dropPosition === 'top' && (
@@ -181,6 +181,7 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
             <Grip className="h-5 w-5" />
           </div>
         </div>
+        {todo.description && <TodoDescription description={todo.description} />}
       </CardHeader>
     </Card>
   );
