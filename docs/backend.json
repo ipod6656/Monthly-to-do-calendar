@@ -38,6 +38,10 @@
         "isRecurring": {
           "type": "boolean",
           "description": "Indicates if the todo item repeats monthly."
+        },
+        "originalOrder": {
+          "type": "number",
+          "description": "Stores the original sort order before being marked as complete."
         }
       },
       "required": [

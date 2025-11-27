@@ -9,4 +9,5 @@ export interface Todo {
   completed: boolean;
   order: number;
   isRecurring?: boolean;
+  originalOrder?: number;
 }

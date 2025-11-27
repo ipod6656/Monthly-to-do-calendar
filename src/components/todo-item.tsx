@@ -31,16 +31,36 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
 
   const handleCheckedChange = (checked: boolean) => {
     if (!user || !firestore) return;
+    
+    // For recurring instances, we update the original document.
     const targetId = todo.originalId || todo.id;
     if (!targetId) return;
 
     startTransition(() => {
       try {
         const todoRef = doc(firestore, "users", user.uid, "todos", targetId);
-        updateDocumentNonBlocking(todoRef, {
-          completed: checked,
-          updatedAt: serverTimestamp(),
-        });
+        let updateData: Partial<Todo> & { updatedAt: any };
+
+        if (checked) {
+          // When checking as completed
+          updateData = {
+            completed: true,
+            originalOrder: todo.order, // Save the current order
+            order: 0, // Move to top
+            updatedAt: serverTimestamp(),
+          };
+        } else {
+          // When unchecking
+          updateData = {
+            completed: false,
+            order: todo.originalOrder ?? todo.order, // Restore original order, fallback to current
+            originalOrder: undefined, // Clear the saved order
+            updatedAt: serverTimestamp(),
+          };
+        }
+
+        updateDocumentNonBlocking(todoRef, updateData);
+
       } catch (error) {
         toast({
           variant: "destructive",
@@ -91,10 +111,10 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
       onSelect(todo);
     }
   };
-
-  // For a recurring instance shown on the calendar, 'completed' should be based on its own state, but for display, it is always false.
-  // For a non-recurring todo, it's just its own 'completed' status.
-  const isCompleted = todo.isRecurring && todo.originalId ? false : todo.completed;
+  
+  // For a recurring instance shown on the calendar, its checkbox is disabled.
+  // The 'completed' status comes directly from the todo object itself.
+  const isCompleted = todo.completed;
   const isRecurringInstance = todo.isRecurring && !!todo.originalId;
 
 
