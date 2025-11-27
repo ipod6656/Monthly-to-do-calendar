@@ -54,7 +54,7 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
           updateData = {
             completed: false,
             order: todo.originalOrder ?? todo.order, // Restore original order, fallback to current
-            originalOrder: undefined, // Clear the saved order
+            originalOrder: null, // Clear the saved order by setting to null
             updatedAt: serverTimestamp(),
           };
         }
@@ -112,11 +112,8 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
     }
   };
   
-  // For a recurring instance shown on the calendar, its checkbox is disabled.
-  // The 'completed' status comes directly from the todo object itself.
-  const isCompleted = todo.completed;
   const isRecurringInstance = todo.isRecurring && !!todo.originalId;
-
+  const isCompleted = isRecurringInstance ? false : todo.completed;
 
   return (
     <Card
