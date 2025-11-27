@@ -54,17 +54,32 @@ export function addDocumentNonBlocking(colRef: CollectionReference, data: any) {
 
 /**
  * Initiates an updateDoc operation for a document reference.
+ * It cleans the data by removing any keys with `undefined` values before updating.
  * Does NOT await the write operation internally.
  */
 export function updateDocumentNonBlocking(docRef: DocumentReference, data: any) {
-  updateDoc(docRef, data)
+  // Create a new object to hold the cleaned data.
+  const cleanedData: { [key: string]: any } = {};
+
+  // Iterate over the keys of the input data object.
+  for (const key in data) {
+    // Check if the key belongs to the object itself (not its prototype).
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+      // If the value is not undefined, add it to the cleanedData object.
+      if (data[key] !== undefined) {
+        cleanedData[key] = data[key];
+      }
+    }
+  }
+  
+  updateDoc(docRef, cleanedData)
     .catch(error => {
       errorEmitter.emit(
         'permission-error',
         new FirestorePermissionError({
           path: docRef.path,
           operation: 'update',
-          requestResourceData: data,
+          requestResourceData: cleanedData,
         })
       )
     });
