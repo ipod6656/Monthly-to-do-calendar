@@ -13,7 +13,7 @@ interface Holiday {
 // A proper implementation would use a dedicated astronomical library.
 function getLunarHolidays(year: number): Holiday[] {
     // These dates are for 2024. This section would need a real lunar calendar calculation library for accuracy across years.
-    // For the purpose of this example, we'll hardcode for 2024 and 2025.
+    // For the purpose of this example, we'll hardcode for 2024, 2025, and 2026.
     if (year === 2024) {
         return [
             { date: '2024-02-09', name: '설날 연휴' },
@@ -36,7 +36,18 @@ function getLunarHolidays(year: number): Holiday[] {
             { date: '2025-10-06', name: '추석' },
             { date: '2025-10-07', name: '추석 연휴' },
             { date: '2025-10-08', name: '추석 대체공휴일' },
-        ]
+        ];
+    }
+    if (year === 2026) {
+        return [
+            { date: '2026-02-16', name: '설날 연휴' },
+            { date: '2026-02-17', name: '설날' },
+            { date: '2026-02-18', name: '설날 연휴' },
+            { date: '2026-05-23', name: '부처님 오신 날' },
+            { date: '2026-09-24', name: '추석 연휴' },
+            { date: '2026-09-25', name: '추석' },
+            { date: '2026-09-26', name: '추석 연휴' },
+        ];
     }
     // Return empty for other years as we don't have the data.
     return [];
@@ -60,13 +71,24 @@ export function getHolidays(year: number): Holiday[] {
         name: h.name
     }));
 
-    // Add substitute holidays
-    // Example for 2024: Children's day is on Sunday, so Monday is a substitute holiday.
+    // Add substitute holidays based on year-specific rules
     if (year === 2024) {
+        // Children's Day is on Sunday, May 5th. Substitute is Monday, May 6th.
         yearSpecificHolidays.push({ date: '2024-05-06', name: '어린이날 대체공휴일' });
     }
-     if (year === 2025) {
-        yearSpecificHolidays.push({ date: '2025-05-06', name: '어린이날 대체공휴일' });
+    if (year === 2025) {
+        // Children's day is already a holiday (Buddha's Birthday), so it doesn't get a substitute day itself,
+        // but it is on Monday, so no substitute needed anyway.
+    }
+    if (year === 2026) {
+        // Samiljeol (Independence Movement Day) is on a Sunday, March 1st.
+        yearSpecificHolidays.push({ date: '2026-03-02', name: '삼일절 대체공휴일' });
+        // Children's Day is on Tuesday, May 5th.
+        // Buddha's Birthday is on a Saturday, May 23rd.
+        yearSpecificHolidays.push({ date: '2026-05-25', name: '부처님오신날 대체공휴일' });
+        // Chuseok day is Friday, Sep 25th. The day after is Saturday, Sep 26th. If Saturday is considered part of the holiday period that overlaps with a weekend day (Saturday itself), there might be a substitute.
+        // Assuming the rule applies if Chuseok period (24,25,26) includes Saturday.
+        yearSpecificHolidays.push({ date: '2026-09-28', name: '추석 대체공휴일' });
     }
 
     const lunarHolidays = getLunarHolidays(year);
