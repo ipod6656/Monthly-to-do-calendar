@@ -104,3 +104,7 @@
 .todo-dot.low {
   background-color: #22c55e; /* green-500 */
 }
+
+.holiday {
+  color: #ef4444; /* red-500 */
+}

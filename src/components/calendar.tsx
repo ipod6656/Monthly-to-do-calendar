@@ -56,6 +56,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { getHolidays } from "@/lib/holidays";
 
 export function Calendar() {
   const { toast } = useToast();
@@ -267,6 +268,8 @@ export function Calendar() {
     }
   };
 
+  const holidays = useMemo(() => getHolidays(currentDate.getFullYear()), [currentDate]);
+
   const allTodosForCalendar = useMemo(() => {
     if (!todos) return [];
   
@@ -378,6 +381,8 @@ export function Calendar() {
   const MobileCalendarGrid = ({ days }: { days: Date[] }) => (
     <div className="grid grid-cols-7 gap-y-2">
       {days.map(day => {
+        const dayStr = format(day, "yyyy-MM-dd");
+        const holiday = holidays.find(h => h.date === dayStr);
         const todosForDay = allTodosForCalendar.filter(todo => isSameDay(new Date(todo.date), day));
         const isToday = isSameDay(day, new Date());
         const isSelected = isSameDay(day, agendaDate);
@@ -402,6 +407,7 @@ export function Calendar() {
               "w-8 h-8 flex items-center justify-center rounded-full transition-colors",
               isToday && "bg-red-500 text-white",
               isSelected && !isToday && "bg-primary text-primary-foreground",
+               (getDay(day) === 0 || holiday) && !isSelected && !isToday && "text-red-500",
             )}>
               <time dateTime={format(day, "yyyy-MM-dd")}>
                 {format(day, "d")}
@@ -604,6 +610,8 @@ export function Calendar() {
             {calendarDays
               .filter(day => getDay(day) >= 1 && getDay(day) <= 5)
               .map((day) => {
+              const dayStr = format(day, "yyyy-MM-dd");
+              const holiday = holidays.find(h => h.date === dayStr);
               const todosForDay = allTodosForCalendar
                 .filter((todo) => isSameDay(new Date(todo.date), day))
                 .sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -626,7 +634,8 @@ export function Calendar() {
                           dateTime={format(day, "yyyy-MM-dd")}
                           className={cn(
                             "font-semibold",
-                            isToday && "text-accent-foreground"
+                            isToday && "text-accent-foreground",
+                            (getDay(day) === 0 || holiday) && "holiday"
                           )}
                         >
                           {format(day, "d")}
@@ -634,6 +643,11 @@ export function Calendar() {
                         {isToday && (
                           <Badge>
                             Today
+                          </Badge>
+                        )}
+                        {holiday && (
+                          <Badge variant="destructive" className="text-xs">
+                            {holiday.name}
                           </Badge>
                         )}
                       </div>
