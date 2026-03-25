@@ -52,3 +52,10 @@ firestore-debug.log
 ui-debug.log
 functions/dist
 functions/lib
+
+# Antigravity/Gemini context
+.agents/
+.gemini/
+.agent/
+_agents/
+_agent/
