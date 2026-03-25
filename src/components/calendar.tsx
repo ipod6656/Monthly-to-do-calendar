@@ -28,7 +28,6 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
-  Bot,
   ListTodo,
 } from "lucide-react";
 import { useMemo, useState, useTransition, useRef, useEffect, DragEvent } from "react";
@@ -37,7 +36,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { TodoDialog } from "@/components/todo-dialog";
 import { TodoItem } from "@/components/todo-item";
-import { AiSummaryDialog } from "@/components/ai-summary-dialog";
+
 import { cn } from "@/lib/utils";
 import { exportTodosByYear } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
@@ -69,7 +68,7 @@ export function Calendar() {
   const [agendaDate, setAgendaDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setDialogOpen] = useState(false);
-  const [isAiDialogOpen, setAiDialogOpen] = useState(false);
+
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isExporting, startExportTransition] = useTransition();
@@ -596,11 +595,6 @@ export function Calendar() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button onClick={() => setAiDialogOpen(true)} className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold border-0 shadow-md flex items-center h-10 px-4 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]">
-              <Bot className="h-4 w-4 mr-2" />
-              <span>AI 브리핑</span>
-            </Button>
-            
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline" className="relative shadow-sm border-slate-200 text-slate-700 hover:bg-slate-50 h-10 px-4 rounded-xl font-bold transition-all">
@@ -888,11 +882,7 @@ export function Calendar() {
           todo={selectedTodo}
           selectedDate={selectedDate}
         />
-        <AiSummaryDialog
-          todos={todos || []}
-          isOpen={isAiDialogOpen}
-          setOpen={setAiDialogOpen}
-        />
+
       </div>
     </TooltipProvider>
   );
