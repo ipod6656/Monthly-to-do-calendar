@@ -5,7 +5,7 @@ import type { Todo } from "@/lib/types";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useEffect, useTransition } from "react";
+import { useEffect, useTransition, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -45,7 +45,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Trash2 } from "lucide-react";
+import { Trash2, ChevronDown } from "lucide-react";
 import { useFirestore, useUser } from "@/firebase";
 import { collection, doc, serverTimestamp } from "firebase/firestore";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
@@ -58,6 +58,10 @@ const todoSchema = z.object({
   completed: z.boolean().default(false),
   order: z.number().default(Date.now),
   isRecurring: z.boolean().default(false),
+  isReminderActive: z.boolean().default(false),
+  repeatIntervalDays: z.coerce.number().nullable().optional(),
+  reminderDate: z.string().nullable().optional(),
+  reminderEndDate: z.string().nullable().optional(),
 });
 
 type TodoFormData = z.infer<typeof todoSchema>;
@@ -89,8 +93,31 @@ export function TodoDialog({
       completed: false,
       order: Date.now(),
       isRecurring: false,
+      isReminderActive: false,
+      repeatIntervalDays: null,
+      reminderDate: null,
+      reminderEndDate: null,
     },
   });
+
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [showScrollHint, setShowScrollHint] = useState(false);
+
+  const checkScroll = () => {
+    if (contentRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = contentRef.current;
+      setShowScrollHint(scrollHeight > clientHeight + 5 && scrollTop + clientHeight < scrollHeight - 5);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(checkScroll, 100);
+      return () => clearTimeout(timer);
+    } else {
+      setShowScrollHint(false);
+    }
+  }, [isOpen, form.watch("isReminderActive"), form.watch("repeatIntervalDays")]);
 
   useEffect(() => {
     if (isOpen) {
@@ -98,6 +125,10 @@ export function TodoDialog({
             form.reset({
                 ...todo,
                 date: format(new Date(todo.date), "yyyy-MM-dd"),
+                isReminderActive: todo.isReminderActive ?? false,
+                repeatIntervalDays: todo.repeatIntervalDays ?? null,
+                reminderDate: todo.reminderDate ?? null,
+                reminderEndDate: todo.reminderEndDate ?? null,
             });
         } else if (selectedDate) {
             form.reset({
@@ -107,6 +138,10 @@ export function TodoDialog({
                 completed: false,
                 order: Date.now(),
                 isRecurring: false,
+                isReminderActive: false,
+                repeatIntervalDays: null,
+                reminderDate: format(selectedDate, "yyyy-MM-dd"),
+                reminderEndDate: null,
             });
         }
     }
@@ -176,7 +211,11 @@ export function TodoDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent 
+        className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto relative"
+        onScroll={checkScroll}
+        ref={contentRef}
+      >
         <DialogHeader>
           <DialogTitle>{todo ? "할 일 수정" : "할 일 추가"}</DialogTitle>
           <DialogDescription>
@@ -280,8 +319,88 @@ export function TodoDialog({
                 />
                 )}
             </div>
-            <DialogFooter className="pt-4 grid gap-2">
-              <Button type="submit" disabled={isPending} className={!todo ? "w-full" : ""}>
+
+            <div className="flex flex-col space-y-3 rounded-md border p-4 bg-slate-50">
+                <FormField
+                    control={form.control}
+                    name="isReminderActive"
+                    render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                        <FormControl>
+                        <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                        <FormLabel className="font-semibold text-sm">이메일 리마인더 알림</FormLabel>
+                        <p className="text-[13px] text-muted-foreground mt-1">
+                          이 할 일을 "완료"로 체크하기 전까지 계속 알람을 줍니다.
+                        </p>
+                        </div>
+                    </FormItem>
+                    )}
+                />
+                
+                {form.watch("isReminderActive") && (
+                <div className="space-y-3 pt-2 border-t mt-2 border-slate-200">
+                    <FormField
+                        control={form.control}
+                        name="reminderDate"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs">첫 알림 발송 날짜 (단 1회 시 이 날짜만 발송)</FormLabel>
+                            <FormControl>
+                                <Input type="date" value={field.value || ""} onChange={field.onChange} />
+                            </FormControl>
+                        </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="repeatIntervalDays"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs">알림 반복 주기</FormLabel>
+                            <Select
+                                onValueChange={(value) => field.onChange(value === "null" ? null : Number(value))}
+                                value={field.value ? String(field.value) : "null"}
+                            >
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="알람 형태 선택" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                <SelectItem value="null">단 1회 (설정한 날짜에만 통보)</SelectItem>
+                                <SelectItem value="1">매일 (완료할 때까지 매일 반복)</SelectItem>
+                                <SelectItem value="3">3일마다 (완료할 때까지 반복)</SelectItem>
+                                <SelectItem value="7">7일마다 매주 (완료할 때까지 반복)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                        )}
+                    />
+                    
+                    {form.watch("repeatIntervalDays") !== null && (
+                    <FormField
+                        control={form.control}
+                        name="reminderEndDate"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-xs">마지막 알림 종료일 (선택 시 이 날짜까지만 발송)</FormLabel>
+                            <FormControl>
+                                <Input type="date" value={field.value || ""} onChange={field.onChange} />
+                            </FormControl>
+                        </FormItem>
+                        )}
+                    />
+                    )}
+                </div>
+                )}
+            </div>
+            <DialogFooter className="pt-4 flex items-center justify-end gap-2">
+              <Button type="submit" disabled={isPending} className="flex-1 sm:flex-none">
                 {isPending ? "저장 중..." : (todo ? "변경 내용 저장" : "할 일 만들기")}
               </Button>
               {todo && (
@@ -313,6 +432,14 @@ export function TodoDialog({
             </DialogFooter>
           </form>
         </Form>
+        {showScrollHint && (
+          <div className="sticky bottom-0 -mb-2 pb-2 mt-4 flex justify-center pointer-events-none z-50">
+            <div className="bg-slate-100/40 text-slate-600 border border-slate-200/50 shadow-sm rounded-full px-3 py-1 flex items-center space-x-1 animate-bounce text-xs font-semibold backdrop-blur-sm">
+              <span>스크롤을 내려주세요</span>
+              <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

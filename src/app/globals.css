@@ -108,3 +108,33 @@
 .holiday {
   color: #ef4444; /* red-500 */
 }
+
+/* Custom macOS style cursors for dragging */
+.mac-grab {
+  cursor: url('/grab.svg') 12 12, grab !important;
+}
+.mac-grab:active {
+  cursor: url('/grabbing.svg') 12 12, grabbing !important;
+}
+.mac-grabbing {
+  cursor: url('/grabbing.svg') 12 12, grabbing !important;
+}
+
+/* Custom black text cursor for search box */
+#mega-search-container svg {
+  color: #000000 !important;
+  stroke: #000000 !important;
+  fill: none !important;
+}
+#mega-search-input {
+  color: #000000 !important;
+  caret-color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  cursor: url('/text-cursor.svg') 5 9, text !important;
+}
+#mega-search-input::placeholder {
+  color: #475569 !important;
+}
+#mega-search-container {
+  cursor: url('/text-cursor.svg') 5 9, text !important;
+}

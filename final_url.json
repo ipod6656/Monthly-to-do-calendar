@@ -1,0 +1,47 @@
+﻿{
+  "status": "success",
+  "result": [
+    {
+      "name": "projects/studio-7490725313-b0a24/locations/us-central1/backends/weekday-todo",
+      "createTime": "2026-03-24T00:58:34.311422746Z",
+      "updateTime": "2026-03-24T01:02:31.421962Z",
+      "labels": {
+        "deployment-tool": "cli-firebase"
+      },
+      "uri": "weekday-todo--studio-7490725313-b0a24.us-central1.hosted.app",
+      "managedResources": [
+        {
+          "runService": {
+            "service": "projects/623632579535/locations/us-central1/services/weekday-todo"
+          }
+        }
+      ],
+      "uid": "d6495b19-7bf1-47c1-993e-2ca145189dee",
+      "etag": "AHW4sYkKQrwAV05BYbCFcmfHGjKBviCSrPkVMA6xpTM",
+      "reconciling": false,
+      "servingLocality": "GLOBAL_ACCESS",
+      "serviceAccount": "firebase-app-hosting-compute@studio-7490725313-b0a24.iam.gserviceaccount.com",
+      "appId": "1:623632579535:web:26c12932edd269910cf0ba"
+    },
+    {
+      "name": "projects/studio-7490725313-b0a24/locations/us-central1/backends/studio",
+      "createTime": "2025-11-12T14:50:07.766957282Z",
+      "updateTime": "2026-02-18T23:32:42.084165Z",
+      "uri": "studio--studio-7490725313-b0a24.us-central1.hosted.app",
+      "managedResources": [
+        {
+          "runService": {
+            "service": "projects/623632579535/locations/us-central1/services/studio"
+          }
+        }
+      ],
+      "displayName": "Studio",
+      "uid": "ff3af549-1c5b-4025-b138-5b40d61ac90d",
+      "etag": "n7ouVSMgcCmSjsPDEd0ocIWJejapiaLrKAGfQ3ycwXo",
+      "reconciling": false,
+      "servingLocality": "GLOBAL_ACCESS",
+      "serviceAccount": "firebase-app-hosting-compute@studio-7490725313-b0a24.iam.gserviceaccount.com",
+      "appId": "1:623632579535:web:6f102cebe5a4f3830cf0ba"
+    }
+  ]
+}

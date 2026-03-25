@@ -10,4 +10,9 @@ export interface Todo {
   order: number;
   isRecurring?: boolean;
   originalOrder?: number | null;
+  isReminderActive?: boolean;
+  repeatIntervalDays?: number | null;
+  reminderDate?: string | null;
+  reminderEndDate?: string | null;
+  originalId?: string;
 }

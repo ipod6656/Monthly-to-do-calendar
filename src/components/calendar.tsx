@@ -28,13 +28,16 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
+  Bot,
+  ListTodo,
 } from "lucide-react";
-import { useMemo, useState, useTransition, DragEvent } from "react";
+import { useMemo, useState, useTransition, useRef, useEffect, DragEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { TodoDialog } from "@/components/todo-dialog";
 import { TodoItem } from "@/components/todo-item";
+import { AiSummaryDialog } from "@/components/ai-summary-dialog";
 import { cn } from "@/lib/utils";
 import { exportTodosByYear } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
@@ -55,8 +58,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
-import { getHolidays } from "@/lib/holidays";
+import { fetchHolidays, getHolidays } from "@/lib/holidays";
 
 export function Calendar() {
   const { toast } = useToast();
@@ -64,11 +69,34 @@ export function Calendar() {
   const [agendaDate, setAgendaDate] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setDialogOpen] = useState(false);
+  const [isAiDialogOpen, setAiDialogOpen] = useState(false);
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isExporting, startExportTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
   const [isCalendarCollapsed, setCalendarCollapsed] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [highlightedDate, setHighlightedDate] = useState<string | null>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [holidays, setHolidays] = useState<{date: string, name: string}[]>([]);
+
+  // Sync Holidays from API
+  useEffect(() => {
+    const year = currentDate.getFullYear();
+    fetchHolidays(year).then(setHolidays);
+  }, [currentDate]);
+
+  // Close search dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsSearchFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const auth = useAuth();
   const { user } = useUser();
@@ -140,6 +168,7 @@ export function Calendar() {
   
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
   };
   
  const handleDropOnTodo = (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => {
@@ -268,7 +297,7 @@ export function Calendar() {
     }
   };
 
-  const holidays = useMemo(() => getHolidays(currentDate.getFullYear()), [currentDate]);
+
 
   const allTodosForCalendar = useMemo(() => {
     if (!todos) return [];
@@ -302,10 +331,47 @@ export function Calendar() {
       }
     });
   
-    return recurringTodosExpanded.filter((todo) =>
+    return recurringTodosExpanded;
+  }, [todos, currentDate]);
+
+  // Filtered todos for calendar display (current month + search)
+  const filteredTodosForCalendar = useMemo(() => {
+    if (!searchQuery) return allTodosForCalendar;
+    return allTodosForCalendar.filter((todo) =>
       todo.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [todos, searchQuery, currentDate]);
+  }, [allTodosForCalendar, searchQuery]);
+
+  // Search results across ALL todos (not just current month)
+  const searchResults = useMemo(() => {
+    if (!searchQuery || !todos) return [];
+    const q = searchQuery.toLowerCase();
+    // Search non-recurring todos directly
+    const results = todos
+      .filter(todo => !todo.isRecurring && todo.title.toLowerCase().includes(q))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(0, 10);
+    return results;
+  }, [todos, searchQuery]);
+
+  const handleSearchSelect = (todo: Todo) => {
+    const todoDate = parseISO(todo.date);
+    setCurrentDate(todoDate);
+    setSearchQuery('');
+    setIsSearchFocused(false);
+    
+    // Highlight the date for 3 seconds
+    const dateStr = todo.date;
+    setHighlightedDate(dateStr);
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => setHighlightedDate(null), 3000);
+  };
+
+  const incompleteTodos = useMemo(() => {
+    return filteredTodosForCalendar
+      .filter((todo) => !todo.completed && !todo.isRecurring)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [filteredTodosForCalendar]);
 
   const firstDayOfMonth = startOfMonth(currentDate);
   const lastDayOfMonth = endOfMonth(currentDate);
@@ -373,17 +439,17 @@ export function Calendar() {
   };
 
   const todosForAgenda = useMemo(() => {
-    return allTodosForCalendar
+    return filteredTodosForCalendar
       .filter((todo) => isSameDay(new Date(todo.date), agendaDate))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
-  }, [allTodosForCalendar, agendaDate]);
+  }, [filteredTodosForCalendar, agendaDate]);
 
   const MobileCalendarGrid = ({ days }: { days: Date[] }) => (
     <div className="grid grid-cols-7 gap-y-2">
       {days.map(day => {
         const dayStr = format(day, "yyyy-MM-dd");
         const holiday = holidays.find(h => h.date === dayStr);
-        const todosForDay = allTodosForCalendar.filter(todo => isSameDay(new Date(todo.date), day));
+        const todosForDay = filteredTodosForCalendar.filter(todo => isSameDay(new Date(todo.date), day));
         const isToday = isSameDay(day, new Date());
         const isSelected = isSameDay(day, agendaDate);
         const isCurrentMonth = isSameMonth(day, currentDate);
@@ -440,72 +506,205 @@ export function Calendar() {
   return (
     <TooltipProvider>
       <div className="flex flex-col bg-background text-foreground p-4 md:p-6 lg:p-8" style={{ height: 'var(--vh, 100vh)' }}>
-        <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-bold font-headline text-primary">
-              Monthly to-do Calendar
-            </h1>
-          </div>
-          <div className="flex items-center justify-center gap-2">
-            <Button variant="outline" size="icon" onClick={prevMonth} className="border-primary/50">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="w-48 text-center">
-              <h1 className="text-3xl font-bold font-headline text-foreground">
-                <div>{format(currentDate, "yyyy")}</div>
-                <div>{format(currentDate, "MMMM")}</div>
+        <header className="mb-8 flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+          <div className="flex items-center gap-6">
+            <div className="flex flex-col gap-0.5 select-none">
+              <h1 className="text-xl font-black font-headline text-slate-700 tracking-tighter leading-none">
+                Monthly to-do
               </h1>
+              <h2 className="text-lg font-bold font-headline text-slate-400 leading-none">
+                Calendar
+              </h2>
             </div>
-            <Button variant="outline" size="icon" onClick={nextMonth} className="border-primary/50">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" onClick={goToToday} className="ml-4 font-semibold border border-primary/50">
-              Today
-            </Button>
+            
+            <div className="flex items-center bg-white/60 p-1 rounded-xl border border-slate-200 shadow-sm backdrop-blur-sm">
+              <Button variant="ghost" size="icon" onClick={prevMonth} className="h-9 w-9 text-slate-500 hover:bg-white hover:shadow-sm transition-all rounded-lg">
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <div className="px-5 text-center min-w-[140px]">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-0.5">{format(currentDate, "yyyy")}</div>
+                <div className="text-lg font-bold text-slate-700 leading-none">{format(currentDate, "MMMM")}</div>
+              </div>
+              <Button variant="ghost" size="icon" onClick={nextMonth} className="h-9 w-9 text-slate-500 hover:bg-white hover:shadow-sm transition-all rounded-lg">
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+              <div className="mx-1.5 h-4 w-[1px] bg-slate-200" />
+              <Button variant="ghost" onClick={goToToday} className="h-9 px-3 text-xs font-bold text-indigo-600 hover:bg-white hover:shadow-sm transition-all rounded-lg">
+                TODAY
+              </Button>
+            </div>
           </div>
+
+          <div id="mega-search-container" ref={searchContainerRef} className="flex-1 max-w-xl min-w-[200px] relative h-11">
+            <svg 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2.5" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 pointer-events-none z-20 text-slate-400"
+            >
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              id="mega-search-input"
+              type="text"
+              placeholder="할일 검색..."
+              className="pl-12 w-full h-full bg-white border border-slate-300 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 shadow-sm rounded-xl text-sm font-bold z-10 focus:outline-none transition-all placeholder:text-slate-400"
+              style={{ caretColor: 'black' }}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+            />
+            {isSearchFocused && searchQuery && searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-[100] max-h-[320px] overflow-y-auto">
+                <div className="p-2 text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-4">검색 결과 ({searchResults.length})</div>
+                {searchResults.map(todo => {
+                  const d = parseISO(todo.date);
+                  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+                  const dateLabel = `${format(d, 'yyyy년 M월 d일')} (${dayNames[d.getDay()]})`;
+                  return (
+                    <button
+                      key={todo.id}
+                      className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 transition-colors flex items-center gap-3 group border-b border-slate-100 last:border-b-0"
+                      onClick={() => handleSearchSelect(todo)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className={cn(
+                          "text-sm font-semibold truncate",
+                          todo.completed ? "line-through text-slate-400" : "text-slate-800",
+                          todo.importance === 'High' && !todo.completed && 'text-red-500'
+                        )}>
+                          {todo.title}
+                        </div>
+                        <div className="text-[11px] text-indigo-500 font-medium mt-0.5">{dateLabel}</div>
+                      </div>
+                      {todo.completed && <span className="text-[10px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-bold">완료</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {isSearchFocused && searchQuery && searchResults.length === 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-[100] p-6 text-center">
+                <span className="text-2xl mb-2 block">🔍</span>
+                <span className="text-sm text-slate-500">'{searchQuery}'에 대한 검색 결과가 없습니다.</span>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search todos..."
-                className="pl-10 w-full"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <Button onClick={handleExport} disabled={isExporting} className="hidden md:flex">
-              {isExporting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
-              )}
-              Export Year
+            <Button onClick={() => setAiDialogOpen(true)} className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold border-0 shadow-md flex items-center h-10 px-4 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]">
+              <Bot className="h-4 w-4 mr-2" />
+              <span>AI 브리핑</span>
             </Button>
-            <div className="flex items-center gap-2">
+            
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="relative shadow-sm border-slate-200 text-slate-700 hover:bg-slate-50 h-10 px-4 rounded-xl font-bold transition-all">
+                  <ListTodo className="h-4 w-4 mr-2" />
+                  <span>모아보기</span>
+                  {incompleteTodos.length > 0 && (
+                    <Badge variant="destructive" className="absolute -top-1.5 -right-1.5 px-1.5 min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] border-2 border-white animate-in zoom-in font-bold">
+                      {incompleteTodos.length}
+                    </Badge>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[85vw] sm:max-w-md flex flex-col gap-4 bg-slate-50/95 backdrop-blur-md p-0 overflow-hidden border-l border-slate-200 shadow-2xl">
+                <SheetHeader className="p-6 pb-2">
+                  <SheetTitle className="flex items-center gap-2 text-xl font-bold font-headline select-none">
+                    <ListTodo className="h-6 w-6 text-indigo-500" />
+                    미완료 할 일 총정리
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="relative flex-1 overflow-hidden">
+                  <ScrollArea className="h-full px-6" ref={(node: any) => {
+                    if (!node) return;
+                    const viewport = node.querySelector('[data-radix-scroll-area-viewport]');
+                    if (!viewport) return;
+                    const checkScroll = () => {
+                      const hint = node.parentElement?.querySelector('[data-scroll-hint]') as HTMLElement | null;
+                      if (!hint) return;
+                      const isScrollable = viewport.scrollHeight > viewport.clientHeight + 20;
+                      const isNearBottom = viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 30;
+                      hint.style.opacity = (isScrollable && !isNearBottom) ? '1' : '0';
+                      hint.style.pointerEvents = (isScrollable && !isNearBottom) ? 'auto' : 'none';
+                    };
+                    viewport.addEventListener('scroll', checkScroll);
+                    const observer = new MutationObserver(checkScroll);
+                    observer.observe(viewport, { childList: true, subtree: true });
+                    setTimeout(checkScroll, 100);
+                  }}>
+                    <div className="space-y-3 pb-8">
+                      {incompleteTodos.length === 0 ? (
+                        <div className="text-center py-10 text-slate-500 flex flex-col items-center">
+                          <span className="text-4xl mb-3">🎉</span>
+                          이번 달 달력의 모든 할 일을 마쳤습니다!<br/>완벽해요.
+                        </div>
+                      ) : (
+                        incompleteTodos.map(todo => {
+                          const parsedDate = parseISO(todo.date);
+                          const kDateStr = `${format(parsedDate, "yyyy년 M월 d일")} (${["일", "월", "화", "수", "목", "금", "토"][parsedDate.getDay()]})`;
+                          return (
+                            <div key={todo.id} className="relative group flex flex-col gap-1">
+                              <div className="text-[12px] font-semibold text-indigo-500 bg-indigo-50/50 inline-block px-2.5 py-0.5 rounded-full self-start mt-3 mb-0.5 border border-indigo-100 shadow-sm">
+                                {kDateStr}
+                              </div>
+                              <TodoItem
+                                todo={todo}
+                                onSelect={() => handleSelectTodo(todo)}
+                                onDrop={handleDropOnTodo}
+                                isToday={isSameDay(parsedDate, new Date())}
+                                hideDragHandle={true}
+                              />
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </ScrollArea>
+                  <div data-scroll-hint className="absolute bottom-6 left-0 right-0 flex justify-center transition-opacity duration-300 z-50 pointer-events-none" style={{ opacity: 0 }}>
+                    <div className="bg-indigo-600 text-white border border-indigo-500 shadow-lg rounded-full px-4 py-1.5 flex items-center space-x-2 animate-bounce text-xs font-bold">
+                      <span>아래에 더 많은 할 일이 있어요</span>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </div>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            <Button onClick={handleExport} disabled={isExporting} variant="secondary" className="hidden lg:flex bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 h-10 rounded-xl font-bold transition-all">
+              {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              <span>CSV 내보내기</span>
+            </Button>
+
+            <div className="flex items-center gap-1.5 ml-1">
                <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button onClick={handleLogout} variant="outline" size="icon">
-                    <LogOut className="h-4 w-4" />
+                  <Button onClick={handleLogout} variant="ghost" size="icon" className="h-10 w-10 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl">
+                    <LogOut className="h-5 w-5" />
                     <span className="sr-only">로그아웃</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>로그아웃</p>
+                  <p className="font-bold">로그아웃</p>
                 </TooltipContent>
               </Tooltip>
               <AlertDialog>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="icon" disabled={isDeleting}>
-                        <Trash2 className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" disabled={isDeleting} className="h-10 w-10 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl">
+                        <Trash2 className="h-5 w-5" />
                          <span className="sr-only">회원 탈퇴</span>
                       </Button>
                     </AlertDialogTrigger>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>회원 탈퇴</p>
+                    <p className="font-bold">회원 탈퇴</p>
                   </TooltipContent>
                 </Tooltip>
                 <AlertDialogContent>
@@ -520,10 +719,10 @@ export function Calendar() {
                     <AlertDialogAction
                       onClick={handleDeleteAccount}
                       disabled={isDeleting}
-                      className="bg-destructive hover:bg-destructive/90"
+                      className="bg-red-600 hover:bg-red-700 text-white font-bold"
                     >
                       {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      탈퇴
+                      탈퇴하기
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -612,7 +811,7 @@ export function Calendar() {
               .map((day) => {
               const dayStr = format(day, "yyyy-MM-dd");
               const holiday = holidays.find(h => h.date === dayStr);
-              const todosForDay = allTodosForCalendar
+              const todosForDay = filteredTodosForCalendar
                 .filter((todo) => isSameDay(new Date(todo.date), day))
                 .sort((a, b) => (a.order || 0) - (b.order || 0));
               const isToday = isSameDay(day, new Date());
@@ -620,9 +819,10 @@ export function Calendar() {
                 <Card
                   key={day.toString()}
                   className={cn(
-                    "transition-colors duration-200 hover:bg-accent/30 flex flex-col relative",
+                    "transition-all duration-300 hover:bg-accent/30 flex flex-col relative",
                     !isSameMonth(day, currentDate) && "bg-muted/50",
-                    isToday && "bg-accent/50"
+                    isToday && "bg-accent/50",
+                    highlightedDate === dayStr && "ring-2 ring-indigo-400 bg-indigo-50/60 shadow-lg shadow-indigo-100 animate-pulse"
                   )}
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDropOnDay(e, day)}
@@ -687,6 +887,11 @@ export function Calendar() {
           setOpen={setDialogOpen}
           todo={selectedTodo}
           selectedDate={selectedDate}
+        />
+        <AiSummaryDialog
+          todos={todos || []}
+          isOpen={isAiDialogOpen}
+          setOpen={setAiDialogOpen}
         />
       </div>
     </TooltipProvider>

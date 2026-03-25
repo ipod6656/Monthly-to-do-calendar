@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser } from "@/firebase";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { doc, serverTimestamp } from "firebase/firestore";
-import { Grip, Repeat } from "lucide-react";
+import { Grip, Menu, Repeat } from "lucide-react";
 import { TodoDescription } from "./todo-description";
 
 interface TodoItemProps {
@@ -18,13 +18,13 @@ interface TodoItemProps {
   onSelect: (todo: Todo) => void;
   onDrop: (e: DragEvent<HTMLDivElement>, targetTodo: Todo) => void;
   isToday?: boolean;
+  hideDragHandle?: boolean;
 }
 
 type DropPosition = 'top' | 'bottom' | null;
 
-export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
+export function TodoItem({ todo, onSelect, onDrop, isToday, hideDragHandle }: TodoItemProps) {
   const [isPending, startTransition] = useTransition();
-  const [isDraggable, setDraggable] = useState(false);
   const [dropPosition, setDropPosition] = useState<DropPosition>(null);
   const { toast } = useToast();
   const { user } = useUser();
@@ -75,6 +75,7 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     // We must use the original ID for database operations
     e.dataTransfer.setData('todoId', todo.originalId || todo.id);
+    e.dataTransfer.effectAllowed = 'move';
     e.stopPropagation();
   };
 
@@ -106,11 +107,8 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
     onDrop(e, todo);
   };
 
-  const handleClick = () => {
-    // Only select if not dragging
-    if (!isDraggable) {
-      onSelect(todo);
-    }
+  const handleClick = (e: React.MouseEvent) => {
+    onSelect(todo);
   };
   
   const isRecurringInstance = todo.isRecurring && !!todo.originalId;
@@ -118,18 +116,15 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
 
   return (
     <Card
-      draggable={isDraggable && !todo.isRecurring}
+      draggable={!todo.isRecurring && !hideDragHandle}
       onDragStart={handleDragStart}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onClick={handleClick}
-      onMouseUp={() => {
-        // This ensures dragging stops even if mouse is released outside the item
-        if (isDraggable) setDraggable(false);
-      }}
       className={cn(
-        "cursor-pointer transition-colors duration-200 hover:bg-accent/20 relative",
+        "transition-colors duration-200 hover:bg-accent/40 relative",
+        (!hideDragHandle && !todo.isRecurring) ? "mac-grab" : "cursor-pointer",
         isCompleted && "bg-muted/60",
         isToday && !isCompleted && "bg-card/60"
       )}
@@ -163,23 +158,15 @@ export function TodoItem({ todo, onSelect, onDrop, isToday }: TodoItemProps) {
             {todo.title}
           </div>
           {todo.isRecurring && <Repeat className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
-          <div
-            onMouseDown={(e) => {
-              if (todo.isRecurring) return;
-              e.stopPropagation();
-              setDraggable(true);
-            }}
-            onMouseUp={(e) => {
-              e.stopPropagation();
-              setDraggable(false);
-            }}
-            onClick={(e) => e.stopPropagation()}
-            className={cn("cursor-move p-1 text-muted-foreground hover:text-foreground touch-none",
-              todo.isRecurring && "cursor-not-allowed opacity-50"
-            )}
-          >
-            <Grip className="h-5 w-5" />
-          </div>
+          {!hideDragHandle && (
+            <div
+              className={cn("p-1 text-muted-foreground/50",
+                todo.isRecurring && "opacity-50"
+              )}
+            >
+              <Menu className="h-4 w-4" />
+            </div>
+          )}
         </div>
         {todo.description && <TodoDescription description={todo.description} />}
       </CardHeader>
